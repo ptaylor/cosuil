@@ -458,7 +458,7 @@ function renderSuggestion() {
   if (folder && d.kind === "exact" && inF > 0 && outF > 0) {
     bar.classList.remove("hidden");
     bar.innerHTML =
-      `<span>Keep the ${inF} photo${inF === 1 ? "" : "s"} in <b>${escapeHtml(folder)}</b> and discard the other ${outF}?</span>` +
+      `<span>Keep <b>all photos in ${escapeHtml(folder)}</b> (${inF}) and discard <b>everything else</b> (${outF})?</span>` +
       `<button id="suggestion-apply" class="btn primary">Apply</button>` +
       `<button id="suggestion-dismiss" class="btn ghost" title="Stop suggesting this folder">Don't suggest again</button>`;
     $("#suggestion-apply").addEventListener("click", () => {
