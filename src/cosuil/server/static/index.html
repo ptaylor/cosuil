@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cosúil — duplicate &amp; similar photo review</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">cosúil</span><span class="sub">duplicate &amp; similar photo finder</span></div>
+  <nav>
+    <button id="btn-new-scan" class="btn">New scan</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ scan view ============ -->
+  <section id="view-scan" class="view">
+    <h1>Scan a directory</h1>
+    <div class="field">
+      <label for="root-input">Directory</label>
+      <div class="row">
+        <input id="root-input" placeholder="/Users/you/Pictures" spellcheck="false">
+        <button id="btn-browse" class="btn">Browse…</button>
+      </div>
+    </div>
+    <div class="field row">
+      <label class="check"><input type="checkbox" id="kinds-exact" checked> exact duplicates</label>
+      <label class="check"><input type="checkbox" id="kinds-similar" checked> similar images</label>
+      <label class="check"><input type="checkbox" id="kinds-deep"> deep (CNN)</label>
+    </div>
+    <div class="field">
+      <label for="threshold-input">Similarity threshold
+        <span class="hint">perceptual hash distance 0–64 · lower = stricter</span></label>
+      <input id="threshold-input" type="number" value="6" min="0" max="64">
+    </div>
+    <div class="field row">
+      <label class="check"><input type="checkbox" id="hidden-input"> include hidden files</label>
+      <label class="check"><input type="checkbox" id="fresh-input"> fresh scan (ignore previous hashes)</label>
+    </div>
+    <button id="btn-start" class="btn primary">Start scan</button>
+    <div id="scan-progress" class="progress hidden">
+      <div class="progress-stage" id="progress-stage">starting…</div>
+      <div class="bar"><div class="bar-fill" id="progress-fill"></div></div>
+      <div class="progress-stats" id="progress-stats"></div>
+    </div>
+  </section>
+
+  <!-- ============ results view ============ -->
+  <section id="view-results" class="view hidden">
+    <div class="results-head">
+      <div>
+        <h1 id="results-title">Results</h1>
+        <div class="sub" id="results-sub"></div>
+      </div>
+      <div class="filters">
+        <select id="filter-kind">
+          <option value="">all kinds</option><option value="exact">exact</option>
+          <option value="similar">similar</option><option value="deep">deep</option>
+        </select>
+        <select id="filter-status">
+          <option value="">all statuses</option><option value="pending">pending</option>
+          <option value="reviewed">reviewed</option>
+        </select>
+        <select id="filter-sort">
+          <option value="bytes">sort: reclaimable</option>
+          <option value="count">sort: group size</option>
+          <option value="quality">sort: quality</option>
+        </select>
+      </div>
+    </div>
+    <div id="groups-grid" class="groups-grid"></div>
+    <div class="pager">
+      <button id="btn-prev-page" class="btn">← prev</button>
+      <span id="page-info"></span>
+      <button id="btn-next-page" class="btn">next →</button>
+    </div>
+    <div id="apply-bar" class="apply-bar hidden">
+      <div id="apply-summary"></div>
+      <button id="btn-apply" class="btn danger">Move non-kept to trash</button>
+    </div>
+  </section>
+
+  <!-- ============ detail view ============ -->
+  <section id="view-detail" class="view hidden">
+    <div class="detail-head">
+      <button id="btn-back" class="btn">← back</button>
+      <span id="detail-kind" class="badge"></span>
+      <span id="detail-title"></span>
+      <span class="spacer"></span>
+      <button id="btn-prev-group" class="btn">↑ prev</button>
+      <span id="detail-pos"></span>
+      <button id="btn-next-group" class="btn">↓ next</button>
+      <button id="btn-autosuggest" class="btn primary">Auto-suggest</button>
+    </div>
+    <div class="compare-tools">
+      <button id="btn-zoom" class="btn">zoom (Z)</button>
+      <button id="btn-blink" class="btn">blink (B)</button>
+      <span class="hint">1–9 select · K keep · X discard · Enter save &amp; next · S skip · ←/→ move</span>
+    </div>
+    <div id="compare-stage" class="compare-stage"></div>
+  </section>
+</main>
+
+<!-- ============ browse modal ============ -->
+<div id="modal-browse" class="modal hidden">
+  <div class="modal-box">
+    <h2>Choose a directory</h2>
+    <div id="browse-path" class="browse-path"></div>
+    <div id="browse-list" class="browse-list"></div>
+    <div class="modal-actions">
+      <button id="browse-cancel" class="btn">Cancel</button>
+      <button id="browse-select" class="btn primary">Select this folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ apply modal ============ -->
+<div id="modal-apply" class="modal hidden">
+  <div class="modal-box">
+    <h2>Apply decisions</h2>
+    <div id="apply-result"></div>
+    <div class="modal-actions"><button id="apply-close" class="btn primary">Done</button></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
