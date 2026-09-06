@@ -251,6 +251,7 @@ function renderDetail() {
           <tr><td>modified</td><td>${fmtDate(m.mtime)}</td></tr>
           <tr><td>camera</td><td>${escapeHtml(m.exif?.camera || "—")}</td></tr>
           <tr><td>taken</td><td>${escapeHtml(m.exif?.taken || "—")}</td></tr>
+          ${m.warning ? `<tr><td>note</td><td>${escapeHtml(m.warning)}</td></tr>` : ""}
           ${m.error ? `<tr><td>note</td><td>${escapeHtml(m.error)}</td></tr>` : ""}
         </table>
         <div class="actions">

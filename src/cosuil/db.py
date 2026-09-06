@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS images (
     exif_json TEXT,
     quality_score REAL,
     quality_json TEXT,
+    warning TEXT,
     error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_scan ON images(scan_id);
@@ -70,6 +71,12 @@ class Database:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
+        # migrations for databases created by older versions
+        image_cols = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(images)")
+        }
+        if "warning" not in image_cols:
+            self._conn.execute("ALTER TABLE images ADD COLUMN warning TEXT")
         self._conn.commit()
 
     # -- low-level helpers -------------------------------------------------
@@ -226,7 +233,7 @@ class Database:
             """
             SELECT i.id AS image_id, i.path, i.size, i.mtime_ns, i.blake3, i.phash,
                    i.width, i.height, i.format, i.quality_score, i.quality_json,
-                   i.exif_json, i.error, m.decision
+                   i.exif_json, i.warning, i.error, m.decision
             FROM group_members m JOIN images i ON i.id = m.image_id
             WHERE m.group_id = ?
             ORDER BY COALESCE(i.quality_score, -1) DESC, i.id

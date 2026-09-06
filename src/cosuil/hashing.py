@@ -8,11 +8,13 @@ message when decoding fails. The BLAKE3 pass only touches the file bytes.
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass, field
 
 import blake3
 import imagehash
 from PIL import Image, ImageFilter, ImageOps, ImageStat
+from PIL.Image import DecompressionBombWarning
 
 from .quality import composite_score
 
@@ -85,6 +87,7 @@ class ImageInfo:
     exif: dict = field(default_factory=dict)
     quality_score: float | None = None
     quality_factors: dict = field(default_factory=dict)
+    warning: str | None = None
     error: str | None = None
 
 
@@ -93,7 +96,13 @@ def phash_image(path: str, hash_size: int = 16, thumb_probe: bool = False) -> Im
     info = ImageInfo(path=path)
     im: Image.Image | None = None
     try:
-        im = Image.open(path)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DecompressionBombWarning)
+            im = Image.open(path)
+        for w in caught:
+            if issubclass(w.category, DecompressionBombWarning) and im is not None:
+                w_px, h_px = im.size
+                info.warning = f"very large image ({w_px}×{h_px} px)"
         info.width, info.height = im.size
         info.format = (im.format or os.path.splitext(path)[1].lstrip(".")).upper()
         info.exif = _read_exif(im)
