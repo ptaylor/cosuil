@@ -165,6 +165,16 @@ async function loadGroups() {
   $("#page-info").textContent = `${listing.total} groups · page ${state.page} / ${pages}`;
   $("#btn-prev-page").disabled = state.page <= 1;
   $("#btn-next-page").disabled = state.page >= pages;
+  const sel = $("#page-select");
+  sel.innerHTML = "";
+  for (let p = 1; p <= pages; p++) {
+    const opt = document.createElement("option");
+    opt.value = String(p);
+    opt.textContent = `page ${p}`;
+    sel.appendChild(opt);
+  }
+  sel.value = String(state.page);
+  sel.disabled = pages <= 1;
   renderAutoBar();
 }
 
@@ -805,6 +815,10 @@ $("#btn-apply").addEventListener("click", applyDecisions);
 $("#apply-close").addEventListener("click", () => $("#modal-apply").classList.add("hidden"));
 $("#btn-prev-page").addEventListener("click", () => { state.page--; loadGroups(); });
 $("#btn-next-page").addEventListener("click", () => { state.page++; loadGroups(); });
+$("#page-select").addEventListener("change", async () => {
+  state.page = parseInt($("#page-select").value, 10);
+  await loadGroups();
+});
 for (const id of ["filter-kind", "filter-status", "filter-sort"]) {
   $(`#${id}`).addEventListener("change", async () => {
     state.filters.kind = $("#filter-kind").value;
