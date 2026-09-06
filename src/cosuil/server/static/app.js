@@ -19,6 +19,7 @@ const state = {
   locOf: [],         // member index -> location index
   learnedFolder: null,  // folder the user consistently keeps (exact groups)
   folderConfirms: {},   // folder -> number of confirming exact groups
+  autoApplyFolder: null, // folder to auto-apply + skip (set after the user hits Apply)
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -148,6 +149,7 @@ async function openResults(scan) {
   showView("results");
   await loadGroups();
   renderApplyBar();
+  renderAutoBar();
 }
 
 async function loadGroups() {
@@ -163,6 +165,7 @@ async function loadGroups() {
   $("#page-info").textContent = `${listing.total} groups · page ${state.page} / ${pages}`;
   $("#btn-prev-page").disabled = state.page <= 1;
   $("#btn-next-page").disabled = state.page >= pages;
+  renderAutoBar();
 }
 
 function renderGrid() {
@@ -203,15 +206,49 @@ function renderApplyBar() {
 /* ================= detail view ================= */
 
 async function openGroup(idx) {
-  const g = state.groups[idx];
-  if (!g) return;
-  state.groupIdx = idx;
-  state.detail = await api(`/api/groups/${g.id}`);
-  state.selected = state.detail.members.findIndex((m) => m.decision === "undecided");
-  if (state.selected < 0) state.selected = 0;
-  stopBlink();
-  showView("detail");
-  renderDetail();
+  let i = idx;
+  let autoApplied = false;
+  for (;;) {
+    const g = state.groups[i];
+    if (!g) return;
+    const d = await api(`/api/groups/${g.id}`);
+    const auto = state.autoApplyFolder;
+    const matches = auto && d.kind === "exact" &&
+      d.members.some((m) => folderOf(m) === auto) &&
+      d.members.some((m) => folderOf(m) !== auto);
+    if (!matches) {
+      state.groupIdx = i;
+      state.detail = d;
+      state.selected = d.members.findIndex((m) => m.decision === "undecided");
+      if (state.selected < 0) state.selected = 0;
+      stopBlink();
+      showView("detail");
+      renderDetail();
+      if (autoApplied) {
+        state.scan = await api(`/api/scans/${state.scanId}`);
+        renderApplyBar();
+      }
+      return;
+    }
+    // auto-apply and skip: keep the learned folder, discard everything else
+    d.members.forEach((m) => { m.decision = folderOf(m) === auto ? "keep" : "discard"; });
+    const decisions = {};
+    d.members.forEach((m) => { decisions[String(m.image_id)] = m.decision; });
+    try {
+      await api(`/api/groups/${d.id}/decisions`, { method: "POST", body: JSON.stringify({ decisions }) });
+    } catch (e) { /* offered again later */ }
+    g.status = "reviewed";
+    autoApplied = true;
+    i += 1;
+    if (i >= state.groups.length) {
+      state.scan = await api(`/api/scans/${state.scanId}`);
+      renderApplyBar();
+      await loadGroups();
+      showView("results");
+      renderAutoBar();
+      return;
+    }
+  }
 }
 
 function groupNav(step) {
@@ -325,6 +362,7 @@ function renderDetail() {
   });
   applyPreviewState();
   renderSuggestion();
+  renderAutoBar();
 }
 
 function applyPreviewState() {
@@ -464,7 +502,11 @@ function renderSuggestion() {
     $("#suggestion-apply").addEventListener("click", () => {
       const f = state.learnedFolder;
       d.members.forEach((m) => { m.decision = folderOf(m) === f ? "keep" : "discard"; });
+      state.autoApplyFolder = f;   // from now on, auto-apply matching groups
+      state.learnedFolder = null;  // stop showing the suggestion banner
       applyPreviewState();
+      renderSuggestion();
+      renderAutoBar();
     });
     $("#suggestion-dismiss").addEventListener("click", () => {
       state.learnedFolder = null;
@@ -473,6 +515,24 @@ function renderSuggestion() {
     });
   } else {
     bar.classList.add("hidden");
+  }
+}
+
+function renderAutoBar() {
+  const f = state.autoApplyFolder;
+  for (const sel of ["#auto-bar", "#results-auto-note"]) {
+    const el = $(sel);
+    if (!el) continue;
+    const inHiddenView = el.closest(".view")?.classList.contains("hidden");
+    if (!f || inHiddenView) {
+      el.classList.add("hidden");
+      el.innerHTML = "";
+      continue;
+    }
+    el.classList.remove("hidden");
+    el.innerHTML =
+      `<span>Auto-applying: keep <b>all photos in ${escapeHtml(f)}</b>, discard everything else.</span>` +
+      `<button class="btn ghost" data-stop-auto>Stop auto-apply</button>`;
   }
 }
 
@@ -736,6 +796,13 @@ $("#browse-cancel").addEventListener("click", () => $("#modal-browse").classList
 $("#browse-select").addEventListener("click", () => {
   $("#root-input").value = browseCurrent;
   $("#modal-browse").classList.add("hidden");
+});
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-stop-auto]")) {
+    state.autoApplyFolder = null;
+    renderAutoBar();
+  }
 });
 
 refreshScansList();
