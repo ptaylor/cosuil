@@ -373,7 +373,12 @@ function renderDetail() {
         <div class="actions">
           <button class="btn keep ${m.decision === "keep" ? "keep-on" : ""}" data-act="keep">Keep</button>
           <button class="btn discard ${m.decision === "discard" ? "discard-on" : ""}" data-act="discard">Discard</button>
-          <button class="btn copy-path" data-i="${i}" title="Copy the full path to this photo">Copy path</button>
+          <button class="btn copy-path" data-i="${i}" title="Copy the full path to this photo" aria-label="Copy path">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/>
+              <path d="M10.5 5.5v-.5A1.5 1.5 0 0 0 9 3.5H4A1.5 1.5 0 0 0 2.5 5v5A1.5 1.5 0 0 0 4 11.5h.5"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>`;
@@ -468,9 +473,10 @@ async function copyPath(i) {
   const ok = await copyText(m.path);
   const btn = document.querySelector(`.preview[data-i="${i}"] .copy-path`);
   if (ok && btn) {
-    const old = btn.textContent;
-    btn.textContent = "✓ copied";
-    setTimeout(() => { btn.textContent = old; }, 1200);
+    const old = btn.innerHTML;
+    btn.innerHTML =
+      '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>';
+    setTimeout(() => { btn.innerHTML = old; }, 1200);
   } else if (!ok) {
     alert(`Path (copy manually):\n${m.path}`);
   }

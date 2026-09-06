@@ -172,6 +172,12 @@ input[type="text"], input[type="number"], select {
 .preview td:last-child { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
 .preview .actions { display: flex; gap: 8px; margin-top: 10px; }
 .preview .actions .btn { flex: 1; }
+.preview .actions .copy-path {
+  flex: 0 0 auto; padding: 8px 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--dim);
+}
+.preview .actions .copy-path:hover { color: var(--text); }
 .preview .actions .keep-on { background: #1e4a30; border-color: var(--green); color: var(--green); font-weight: 700; }
 .preview .actions .discard-on { background: #4a2430; border-color: var(--red); color: var(--red); font-weight: 700; }
 .kbd { display: inline-block; background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; font-size: 11px; color: var(--accent-2); }
