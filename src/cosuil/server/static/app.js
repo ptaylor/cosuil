@@ -210,7 +210,7 @@ function renderDetail() {
   $("#btn-blink").disabled = allIdentical;
   $("#btn-blink").title = allIdentical
     ? "Nothing to compare — all files are byte-identical"
-    : "Alternate images to spot differences (B)";
+    : "Overlay the images in one spot and alternate them (B)";
 
   // color-coded locations: each distinct directory gets a color chip
   const locs = [];
@@ -383,19 +383,25 @@ function toggleZoom(e) {
 
 function stopBlink() {
   if (state.blinkTimer) { clearInterval(state.blinkTimer); state.blinkTimer = null; }
-  document.querySelectorAll("#compare-stage .preview").forEach((el) => (el.style.opacity = 1));
+  const stage = $("#compare-stage");
+  stage.classList.remove("blinking");
+  stage.querySelectorAll(".preview").forEach((el) => (el.style.opacity = ""));
 }
 
 function blink() {
   if ($("#btn-blink").disabled) return;  // byte-identical group: nothing to blink
   if (state.blinkTimer) { stopBlink(); return; }
-  const previews = [...document.querySelectorAll("#compare-stage .preview")];
+  const stage = $("#compare-stage");
+  const previews = [...stage.querySelectorAll(".preview")];
   if (previews.length < 2) return;
+  // overlay mode: stack all previews on top of each other and cycle them
+  stage.classList.add("blinking");
+  previews.forEach((el, j) => { el.style.opacity = j === 0 ? 1 : 0; });
   let i = 0;
   state.blinkTimer = setInterval(() => {
     i = (i + 1) % previews.length;
-    previews.forEach((el, j) => { el.style.opacity = j === i ? 1 : 0.06; });
-  }, 420);
+    previews.forEach((el, j) => { el.style.opacity = j === i ? 1 : 0; });
+  }, 450);
 }
 
 /* ---- keyboard ---- */

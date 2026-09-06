@@ -133,6 +133,11 @@ input[type="text"], input[type="number"], select {
 .preview td.loc-txt { color: var(--accent-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
 
 .compare-stage { display: flex; gap: 16px; flex-wrap: wrap; }
+/* blink: overlay all images in one spot and alternate */
+.compare-stage.blinking { position: relative; height: 62vh; flex-wrap: nowrap; }
+.compare-stage.blinking .preview { position: absolute; inset: 0; flex: none; min-width: 0; border: 1px solid var(--border); background: #0c0c14; transition: opacity .1s; }
+.compare-stage.blinking .preview .img-wrap { height: 100%; cursor: zoom-in; }
+.compare-stage.blinking .preview .p-body { display: none; }
 .preview {
   flex: 1 1 360px; min-width: 300px; background: var(--panel); border: 1px solid var(--border);
   border-radius: 12px; overflow: hidden; transition: border-color .12s;
