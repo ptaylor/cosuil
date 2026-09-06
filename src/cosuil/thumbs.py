@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from .config import thumbs_dir
-from .hashing import register_extra_openers
+from .hashing import open_loaded, register_extra_openers
 
 register_extra_openers()
 
@@ -26,7 +26,7 @@ def thumb_path(path: str, mtime_ns: int, size: int) -> Path:
 def _generate(source: str, mtime_ns: int, size: int, thumb_size: int, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(".tmp.jpg")
-    with Image.open(source) as im:
+    with open_loaded(source) as im:
         try:
             im = ImageOps.exif_transpose(im)
         except Exception:
@@ -79,7 +79,7 @@ def get_preview(path: str, mtime_ns: int, size: int, fmt: str | None) -> Path | 
     tmp = dest.with_suffix(".tmp.png")
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        with Image.open(original) as im:
+        with open_loaded(original) as im:
             try:
                 im = ImageOps.exif_transpose(im)
             except Exception:
