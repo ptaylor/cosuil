@@ -96,11 +96,17 @@ exif = 0.20
 
 ## Data locations
 
-| What | Where |
-| --- | --- |
-| Scan database (SQLite) | `~/.local/share/cosuil/cosuil.db` (or `$COSUIL_DATA_DIR`) |
-| Apply reports (JSON) | `~/.local/share/cosuil/reports/` |
-| Thumbnail / preview cache | `~/.cache/cosuil/thumbnails/` (or `$COSUIL_CACHE_DIR`) |
+Platform-specific; run `cosuil paths` to print the effective locations, and
+every path can be overridden with an environment variable.
+
+| What | macOS | Linux (XDG) |
+| --- | --- | --- |
+| Scan database (SQLite) | `~/Library/Application Support/cosuil/cosuil.db` | `~/.local/share/cosuil/cosuil.db` |
+| Apply reports (JSON) | `~/Library/Application Support/cosuil/reports/` | `~/.local/share/cosuil/reports/` |
+| Thumbnail / preview cache | `~/Library/Caches/cosuil/thumbnails/` | `~/.cache/cosuil/thumbnails/` |
+| Config file | `~/.config/cosuil/config.toml` | `~/.config/cosuil/config.toml` |
+
+Environment overrides: `COSUIL_DATA_DIR`, `COSUIL_CACHE_DIR`, `COSUIL_CONFIG_DIR`.
 
 ## Development
 

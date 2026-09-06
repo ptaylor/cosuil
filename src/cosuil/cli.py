@@ -13,7 +13,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from .config import DEFAULT_EXTENSIONS, ScanConfig, db_path
+from .config import DEFAULT_EXTENSIONS, ScanConfig, config_dir, db_path, reports_dir, thumbs_dir
 from .db import Database
 from .scanner import Scanner
 from .tui import ScanTUI
@@ -150,6 +150,20 @@ def report(
     remaining = listing["total"] - min(limit, listing["total"])
     if remaining > 0:
         table.add_row(f"[dim]{remaining} more…[/dim]", "", "", "", "")
+    console.print(table)
+
+
+@app.command()
+def paths() -> None:
+    """Show where cosuil stores its data on this machine."""
+    table = Table(title="cosuil storage locations", box=box.ROUNDED,
+                  border_style="magenta", title_style="bold magenta")
+    table.add_column("what", style="bold cyan")
+    table.add_column("path")
+    table.add_row("config file", str(config_dir() / "config.toml"))
+    table.add_row("scan database", str(db_path()))
+    table.add_row("apply reports", str(reports_dir()))
+    table.add_row("thumbnails", str(thumbs_dir()))
     console.print(table)
 
 
