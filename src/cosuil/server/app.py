@@ -106,6 +106,7 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         scan = get_db().get_scan(scan_id)
         if scan is None:
             raise HTTPException(404, "scan not found")
+        scan["config"] = _parse_json(scan.get("config_json"))
         stats = get_db().decision_stats(scan_id)
         scan["decisions"] = stats
         return scan

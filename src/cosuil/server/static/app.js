@@ -111,10 +111,34 @@ function pollScan() {
 
 /* ================= results view ================= */
 
+function renderScanSettings(scan) {
+  const cfg = scan.config || {};
+  const kinds = (cfg.kinds || []).join(", ") || "—";
+  const stamp = (s) => (s || "").replace("T", " ");
+  const parts = [
+    `started ${stamp(scan.started_at)}`,
+    `tiers: ${kinds}`,
+    `phash threshold ${cfg.phash_threshold ?? "?"}`,
+  ];
+  if ((cfg.kinds || []).includes("deep")) {
+    parts.push(`cnn threshold ${cfg.cnn_threshold ?? "?"}`);
+  }
+  parts.push(cfg.include_hidden ? "hidden files included" : "hidden files skipped");
+  if (cfg.skip_libraries !== undefined) {
+    parts.push(cfg.skip_libraries ? "photos libraries skipped" : "photos libraries scanned");
+  }
+  parts.push(`${scan.files_walked} files walked · ${scan.images_found} images`);
+  if (scan.status === "done" && scan.finished_at) {
+    parts.push(`finished ${stamp(scan.finished_at)}`);
+  }
+  return parts.join(" · ");
+}
+
 async function openResults(scan) {
   state.scan = scan;
   state.page = 1;
   $("#results-title").textContent = `Scan ${scan.id} results`;
+  $("#results-sub").textContent = renderScanSettings(scan);
   showView("results");
   await loadGroups();
   renderApplyBar();

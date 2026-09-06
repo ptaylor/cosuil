@@ -61,6 +61,10 @@ def test_full_review_flow(client, fixtures_dir):
     scan = _wait_scan(client, scan_id)
     assert scan["status"] == "done"
     assert scan["images_found"] >= 10
+    # scan settings are exposed for display
+    assert scan["config"]["phash_threshold"] == 6
+    assert set(scan["config"]["kinds"]) == {"exact", "similar"}
+    assert scan["config"]["skip_libraries"] is True
 
     # group listing + detail
     group = _first_group(client, scan_id)
