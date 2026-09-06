@@ -299,8 +299,9 @@ class Scanner:
                                 {
                                     k: prev[k]
                                     for k in (
-                                        "width", "height", "format", "sharpness",
-                                        "exif_json", "quality_score", "quality_json",
+                                        "phash", "width", "height", "format",
+                                        "sharpness", "exif_json",
+                                        "quality_score", "quality_json",
                                     )
                                 },
                             )

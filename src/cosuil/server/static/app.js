@@ -226,7 +226,13 @@ function renderDetail() {
   $("#btn-next-group").disabled = state.groupIdx >= state.total - 1;
 
   const dupCounts = {};
-  d.members.forEach((m) => { if (m.blake3) dupCounts[m.blake3] = (dupCounts[m.blake3] || 0) + 1; });
+  const dupOf = {};
+  d.members.forEach((m, i) => {
+    if (m.blake3) {
+      dupCounts[m.blake3] = (dupCounts[m.blake3] || 0) + 1;
+      (dupOf[m.blake3] = dupOf[m.blake3] || []).push(i);
+    }
+  });
 
   // blink is useless when every member is the exact same bytes
   const allIdentical = d.members.length > 1 &&
@@ -265,8 +271,10 @@ function renderDetail() {
     const exifBits = [];
     if (m.exif?.camera) exifBits.push(`📷 ${escapeHtml(m.exif.camera)}`);
     if (m.exif?.taken) exifBits.push(`🗓 ${escapeHtml(m.exif.taken)}`);
-    const exact = m.blake3 && dupCounts[m.blake3] > 1
-      ? `<span class="badge exact">exact copy</span>` : "";
+    const exactSiblings = (dupOf[m.blake3] || []).filter((j) => j !== i);
+    const exact = m.blake3 && exactSiblings.length
+      ? `<span class="badge exact" title="Byte-identical to:\n${escapeHtml(exactSiblings.map((j) => d.members[j].path).join("\n"))}">exact copy</span>`
+      : "";
     const kbd = i < 9 ? `<span class="kbd">${i + 1}</span>` : "";
     return `
     <div class="preview" data-i="${i}">

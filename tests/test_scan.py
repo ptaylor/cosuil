@@ -89,6 +89,12 @@ def test_incremental_rescan_reuses_hashes(fixtures_dir, tmp_dirs):
     assert second["hashes_reused"] >= 10
     assert second["images_found"] == first["images_found"]
     assert second["exact_groups"] == first["exact_groups"]
+    # reused hashes are persisted on the new scan rows too
+    db = Database(db_path())
+    phash_rows = db._query(
+        "SELECT phash FROM images WHERE scan_id = ?", (second["scan_id"],)
+    )
+    assert sum(1 for r in phash_rows if r["phash"]) >= 10
     # but a fresh scan re-hashes everything
     third = _run_scan(fixtures_dir, fresh=True)
     assert third["images_hashed"] > 10
