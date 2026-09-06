@@ -15,6 +15,8 @@ const state = {
   decisions: {},     // image_id -> keep|discard|undecided
   blinkTimer: null,
   polling: null,
+  locs: [],          // distinct directories in the current group
+  locOf: [],         // member index -> location index
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -202,6 +204,30 @@ function renderDetail() {
   const dupCounts = {};
   d.members.forEach((m) => { if (m.blake3) dupCounts[m.blake3] = (dupCounts[m.blake3] || 0) + 1; });
 
+  // color-coded locations: each distinct directory gets a color chip
+  const locs = [];
+  const locOf = d.members.map((m) => {
+    const key = m.rel_dir || m.dirname;
+    let i = locs.indexOf(key);
+    if (i < 0) { i = locs.length; locs.push(key); }
+    return i;
+  });
+  const locCounts = locs.map(() => 0);
+  locOf.forEach((i) => { locCounts[i] += 1; });
+  state.locs = locs;
+  state.locOf = locOf;
+  const DOT = ["#e055c1", "#35c8d8", "#e8c05c", "#43d17c", "#b79cff", "#ff9aa6", "#7cc4ff", "#7ce0b0"];
+  const dot = (i) => DOT[i % DOT.length];
+
+  $("#loc-bar").innerHTML = locs.map((l, i) =>
+    `<button class="loc-chip" data-loc="${i}" title="Keep all from this folder, discard the rest">` +
+    `<span class="loc-dot" style="background:${dot(i)}"></span>${escapeHtml(l)} ` +
+    `<span class="loc-count">(${locCounts[i]})</span></button>`
+  ).join("");
+  document.querySelectorAll("#loc-bar .loc-chip").forEach((chip) => {
+    chip.addEventListener("click", () => keepLocation(parseInt(chip.dataset.loc, 10)));
+  });
+
   $("#compare-stage").innerHTML = d.members.map((m, i) => {
     const q = m.quality_score === null ? null : Math.round((m.quality_score || 0) * 100);
     const exifBits = [];
@@ -214,13 +240,14 @@ function renderDetail() {
     <div class="preview" data-i="${i}">
       <div class="img-wrap"><img src="${m.file_url}" alt=""></div>
       <div class="p-body">
-        <div class="p-top">${kbd}<span class="p-name">${escapeHtml(m.name)}</span>${exact}</div>
+        <div class="p-top">${kbd}<span class="loc-dot" style="background:${dot(locOf[i])}" title="${escapeHtml(m.rel_dir || m.dirname)}"></span><span class="p-name">${escapeHtml(m.name)}</span>${exact}</div>
         <div class="qbar"><div class="qbar-fill" style="width:${q ?? 0}%"></div></div>
         <table>
           <tr><td>quality score</td><td>${q === null ? "—" : q + "%"}</td></tr>
           <tr><td>dimensions</td><td>${m.width ?? "?"} × ${m.height ?? "?"}</td></tr>
           <tr><td>file size</td><td>${fmtBytes(m.size)}</td></tr>
           <tr><td>format</td><td>${m.format || "—"}</td></tr>
+          <tr><td>location</td><td class="loc-txt" title="${escapeHtml(m.dirname)}">${escapeHtml(m.rel_dir || m.dirname)}</td></tr>
           <tr><td>modified</td><td>${fmtDate(m.mtime)}</td></tr>
           <tr><td>camera</td><td>${escapeHtml(m.exif?.camera || "—")}</td></tr>
           <tr><td>taken</td><td>${escapeHtml(m.exif?.taken || "—")}</td></tr>
@@ -267,8 +294,29 @@ function setSelected(i) {
 }
 
 function setDecision(i, value) {
-  const m = state.detail.members[i];
-  m.decision = m.decision === value ? "undecided" : value;
+  const d = state.detail;
+  const m = d.members[i];
+  if (value === "keep") {
+    if (m.decision === "keep") {
+      m.decision = "undecided";  // toggle off (siblings stay as they are)
+    } else {
+      // keeping one photo auto-keeps its folder-mates (same location)
+      const key = m.rel_dir || m.dirname;
+      d.members.forEach((other) => {
+        if ((other.rel_dir || other.dirname) === key) other.decision = "keep";
+      });
+    }
+  } else {
+    m.decision = m.decision === value ? "undecided" : value;
+  }
+  applyPreviewState();
+}
+
+function keepLocation(locIdx) {
+  const d = state.detail;
+  d.members.forEach((m, i) => {
+    m.decision = state.locOf[i] === locIdx ? "keep" : "discard";
+  });
   applyPreviewState();
 }
 

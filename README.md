@@ -59,6 +59,9 @@ cosuil serve                          # start review UI → http://127.0.0.1:878
    - `Z` zoom (synchronized across previews), `B` blink compare
    - `Enter` save & next group, `S` save & stay, `↑/↓` navigate groups
    - *Auto-suggest* marks the highest-scoring image as keep
+   - Each photo shows its folder (color-coded). Clicking a folder chip keeps
+     everything from that folder and discards the rest; marking one photo as
+     *keep* auto-keeps its folder-mates too.
 5. Use the **Apply** bar to move everything marked *discard* to the OS trash.
    A JSON report with every moved path is written to the data directory, and
    files remain recoverable from the trash.

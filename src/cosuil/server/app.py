@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import threading
 from pathlib import Path
 from typing import Any, Optional
@@ -153,13 +154,19 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         group = db.get_group(group_id)
         if group is None:
             raise HTTPException(404, "group not found")
+        scan = db.get_scan(group["scan_id"]) or {}
+        root = scan.get("root") or ""
         for m in group["members"]:
-            m["name"] = Path(m["path"]).name
+            full = Path(m["path"])
+            m["name"] = full.name
+            m["dirname"] = str(full.parent)
+            m["rel_dir"] = _rel_dir(str(full.parent), root)
             m["thumb_url"] = f"/api/images/{m['image_id']}/thumb"
             m["file_url"] = f"/api/images/{m['image_id']}/file"
             m["exif"] = _parse_json(m.pop("exif_json", None))
             m["factors"] = _parse_json(m.pop("quality_json", None))
             m["mtime"] = _mtime(m["mtime_ns"])
+        group["root"] = root
         return group
 
     # -- decisions ------------------------------------------------------------------
@@ -211,6 +218,19 @@ def _member_name(db: Database, group_id: int) -> str:
     if not group or not group["members"]:
         return ""
     return Path(group["members"][0]["path"]).name
+
+
+def _rel_dir(dirname: str, root: str) -> str:
+    """Directory relative to the scan root when inside it, else absolute."""
+    try:
+        rel = os.path.relpath(dirname, root)
+    except ValueError:
+        return dirname
+    if rel == ".":
+        return "."
+    if rel.startswith(".."):
+        return dirname
+    return rel
 
 
 def _parse_json(value: Optional[str]) -> Any:

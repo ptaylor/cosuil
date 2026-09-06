@@ -67,6 +67,9 @@ def test_full_review_flow(client, fixtures_dir):
     members = group["members"]
     assert len(members) >= 2
     assert all("thumb_url" in m and "file_url" in m for m in members)
+    # location info for the compare view
+    assert all("dirname" in m and "rel_dir" in m for m in members)
+    assert group["root"] == str(fixtures_dir)
     first_image = members[0]["image_id"]
 
     # thumbnail endpoint returns a JPEG
