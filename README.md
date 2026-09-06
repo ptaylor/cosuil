@@ -1,5 +1,9 @@
 # cosúil
 
+<p align="center">
+  <img src="src/cosuil/server/static/icon.svg" alt="cosúil icon" width="96">
+</p>
+
 **cosúil** (Irish for *similar*) finds duplicate and similar photos in a
 directory, then gives you a visual side-by-side review UI to decide which
 copies to keep — weighing image quality, file size, last-modified time and
