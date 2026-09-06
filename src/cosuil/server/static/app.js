@@ -241,6 +241,13 @@ async function openGroup(idx) {
     autoApplied = true;
     i += 1;
     if (i >= state.groups.length) {
+      const totalPages = Math.max(1, Math.ceil(state.total / state.perPage));
+      if (state.page < totalPages) {
+        state.page += 1;
+        await loadGroups();
+        i = 0;
+        continue;
+      }
       state.scan = await api(`/api/scans/${state.scanId}`);
       renderApplyBar();
       await loadGroups();
@@ -255,7 +262,21 @@ function groupNav(step) {
   const next = state.groupIdx + step;
   if (next >= 0 && next < state.groups.length) {
     saveDecisions(false).then(() => openGroup(next));
+    return;
   }
+  // past the edge of the current page: save, then turn the page
+  saveDecisions(false).then(async () => {
+    const totalPages = Math.max(1, Math.ceil(state.total / state.perPage));
+    if (step > 0 && state.page < totalPages) {
+      state.page += 1;
+      await loadGroups();
+      openGroup(0);
+    } else if (step < 0 && state.page > 1) {
+      state.page -= 1;
+      await loadGroups();
+      openGroup(state.groups.length - 1);
+    }
+  });
 }
 
 function renderDetail() {
@@ -265,8 +286,10 @@ function renderDetail() {
   $("#detail-kind").innerHTML = kindBadge + " " + statusBadge;
   $("#detail-title").textContent = d.members[0]?.path || "";
   $("#detail-pos").textContent = `${state.groupIdx + 1} / ${state.total}`;
-  $("#btn-prev-group").disabled = state.groupIdx <= 0;
-  $("#btn-next-group").disabled = state.groupIdx >= state.total - 1;
+  const totalPages = Math.max(1, Math.ceil(state.total / state.perPage));
+  $("#btn-prev-group").disabled = state.groupIdx <= 0 && state.page <= 1;
+  $("#btn-next-group").disabled =
+    state.groupIdx >= state.groups.length - 1 && state.page >= totalPages;
 
   const dupCounts = {};
   const dupOf = {};
