@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import signal
 import sqlite3
 import sys
 import threading
+import time
 import webbrowser
 from pathlib import Path
 from typing import Optional
@@ -104,12 +106,30 @@ def scan(
         tui.update(counters)
 
     scanner = Scanner(db, cfg, on_progress=on_progress, on_log=tui.log)
+
+    def _sigterm(_signum, _frame):  # treat SIGTERM like Ctrl+C
+        raise KeyboardInterrupt
+
+    old_sigterm = signal.signal(signal.SIGTERM, _sigterm)
     try:
         with tui:
             result = scanner.run()
+    except KeyboardInterrupt:
+        scan_id = getattr(scanner, "scan_id", None)
+        if scan_id is not None:
+            db.update_scan(
+                scan_id,
+                status="error",
+                error="interrupted",
+                finished_at=time.strftime("%Y-%m-%dT%H:%M:%S"),
+            )
+        console.print("[yellow]scan interrupted[/yellow]")
+        raise typer.Exit(130)
     except Exception as exc:
         console.print(f"[bold red]scan failed:[/bold red] {exc}")
         raise typer.Exit(1)
+    finally:
+        signal.signal(signal.SIGTERM, old_sigterm)
 
     scan = db.get_scan(result["scan_id"]) or {}
     groups = _count_groups(db, result["scan_id"])

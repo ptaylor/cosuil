@@ -156,11 +156,13 @@ class Database:
             self._conn.close()
 
     # -- scans --------------------------------------------------------------
-    def upsert_scan(self, root: str, config_json: dict) -> int:
+    def upsert_scan(self, root: str, config_json: dict, takeover: bool = False) -> int:
         """One scan record per directory.
 
         Reuses the existing row for *root* (replacing its results) or creates
-        a new one. Raises RuntimeError if a scan for the directory is running.
+        a new one. Raises RuntimeError if a scan for the directory is running,
+        unless *takeover* is set (used to reclaim records left behind by
+        crashed processes).
         """
         now = time.strftime("%Y-%m-%dT%H:%M:%S")
         with self._lock:
@@ -174,7 +176,7 @@ class Database:
                 )
                 self._conn.commit()
                 return int(cur.lastrowid)
-            if row["status"] == "running":
+            if row["status"] == "running" and not takeover:
                 raise RuntimeError("a scan for this directory is already running")
             scan_id = int(row["id"])
             # replace the previous results (groups cascade to their members)
@@ -271,9 +273,10 @@ class Database:
     # -- hash reuse (incremental scans) ---------------------------------------
     def previous_hashes(self, root: str) -> dict[tuple, dict]:
         """{(path, size, mtime_ns): {'blake3': ..., 'phash': ...}} from the latest
-        completed scan of *root* (the in-progress scan is excluded)."""
+        completed or interrupted scan of *root* (the in-progress scan is
+        excluded, so a re-run can reuse whatever a killed scan finished)."""
         rows = self._query(
-            "SELECT * FROM scans WHERE root = ? AND status = 'done' "
+            "SELECT * FROM scans WHERE root = ? AND status IN ('done', 'error') "
             "ORDER BY id DESC LIMIT 1",
             (root,),
         )

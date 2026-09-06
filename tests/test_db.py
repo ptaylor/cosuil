@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 from cosuil.db import Database
+from cosuil.discovery import FileInfo
 
 
 def test_warning_column_migrated_for_old_databases(tmp_path):
@@ -61,3 +62,43 @@ def test_duplicate_scans_collapsed_to_latest(tmp_path):
     conn = sqlite3.connect(db_file)
     assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
     conn.close()
+
+
+def test_takeover_reclaims_stale_running_scan(tmp_path):
+    db = Database(tmp_path / "cosuil.db")
+    first = db.upsert_scan("/root", {})
+    db.update_scan(first, status="running")
+
+    # a plain upsert refuses while the record says running
+    try:
+        db.upsert_scan("/root", {})
+    except RuntimeError:
+        pass
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected RuntimeError")
+
+    # takeover replaces the stale running record with the same id
+    second = db.upsert_scan("/root", {"kinds": ["exact"]}, takeover=True)
+    assert second == first
+    assert db.get_scan(first)["status"] == "running"
+    db.close()
+
+
+def test_previous_hashes_reuse_from_interrupted_scan(tmp_path):
+    db = Database(tmp_path / "cosuil.db")
+    scan_id = db.upsert_scan("/root", {})
+    db.insert_image_files(
+        scan_id,
+        [FileInfo("/root/a.jpg", 10, 1), FileInfo("/root/b.jpg", 10, 2)],
+    )
+    rows = db.get_image_rows(scan_id)
+    db.update_image(rows[0]["id"], phash="abcd", blake3="beef")
+    db.update_scan(scan_id, status="error", error="interrupted")
+
+    reused = db.previous_hashes("/root")
+    # hashes finished before the interrupt are reusable
+    assert reused[("/root/a.jpg", 10, 1)]["phash"] == "abcd"
+    # the not-yet-hashed row is present but contributes nothing
+    assert ("/root/b.jpg", 10, 2) in reused
+    assert reused[("/root/b.jpg", 10, 2)].get("phash") is None
+    db.close()

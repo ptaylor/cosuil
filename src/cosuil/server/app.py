@@ -30,7 +30,12 @@ def _launch_scan(db: Database, cfg: ScanConfig) -> int:
     try:
         scan_id = db.upsert_scan(str(cfg.root), cfg.to_json())
     except RuntimeError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        # A 'running' record with no live local thread is leftover from a
+        # crashed process: reclaim it instead of blocking rescans forever.
+        row = db.latest_scan(str(cfg.root))
+        if not (row and row["status"] == "running" and row["id"] not in _RUNNING):
+            raise HTTPException(409, str(exc)) from exc
+        scan_id = db.upsert_scan(str(cfg.root), cfg.to_json(), takeover=True)
     scanner = Scanner(db, cfg)
     scanner.scan_id = scan_id
 
