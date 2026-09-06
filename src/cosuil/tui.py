@@ -14,15 +14,8 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
 from rich.table import Table
 from rich.text import Text
 
+from .format import fmt_bytes
 from .scanner import ScanCounters
-
-
-def _fmt_bytes(n: int) -> str:
-    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
-        if n < 1024 or unit == "TiB":
-            return f"{n:.1f} {unit}" if unit != "B" else f"{n} B"
-        n /= 1024.0
-    return f"{n} B"
 
 
 class ScanTUI:
@@ -164,7 +157,7 @@ class ScanTUI:
         table.add_row("deep (CNN) groups", f"{result['deep_groups']:,}")
         table.add_row("unreadable files", f"{result['errors']:,}")
         table.add_row("review groups", f"{groups:,}")
-        table.add_row("reclaimable", f"{_fmt_bytes(reclaimable)}", style="bold green")
+        table.add_row("reclaimable", f"{fmt_bytes(reclaimable)}", style="bold green")
         table.add_row("elapsed", f"{result['elapsed']:.1f}s")
         self.console.print()
         self.console.print(table)

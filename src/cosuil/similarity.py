@@ -8,7 +8,7 @@ from .hashing import hamming
 
 
 class BKTree:
-    """Burkhard-Keller tree over 64-bit hashes with Hamming distance.
+    """Burkhard-Keller tree over 256-bit phash integers with Hamming distance.
 
     Supports incremental insertion and radius queries in O(log n) on average,
     which keeps near-duplicate pairing feasible at the 100k-image scale.

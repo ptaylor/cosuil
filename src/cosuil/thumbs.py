@@ -31,9 +31,7 @@ def _generate(source: str, mtime_ns: int, size: int, thumb_size: int, dest: Path
             im = ImageOps.exif_transpose(im)
         except Exception:
             pass
-        if im.mode in ("RGBA", "P", "LA") or (im.mode == "I;16"):
-            im = im.convert("RGB")
-        elif im.mode != "RGB":
+        if im.mode != "RGB":
             im = im.convert("RGB")
         im.thumbnail((thumb_size, thumb_size))
         im.save(tmp, "JPEG", quality=85)

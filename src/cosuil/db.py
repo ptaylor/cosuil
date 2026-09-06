@@ -224,7 +224,7 @@ class Database:
         self._execute("DELETE FROM scans WHERE id = ?", (scan_id,))
 
     # -- images --------------------------------------------------------------
-    def insert_image_files(self, scan_id: int, files) -> list[int]:
+    def insert_image_files(self, scan_id: int, files) -> None:
         rows = [(scan_id, f.path, f.size, f.mtime_ns) for f in files]
         with self._lock:
             self._conn.executemany(
@@ -232,12 +232,6 @@ class Database:
                 rows,
             )
             self._conn.commit()
-        return [
-            int(r["id"])
-            for r in self._query(
-                "SELECT id FROM images WHERE scan_id = ? ORDER BY id", (scan_id,)
-            )
-        ]
 
     def get_image_rows(self, scan_id: int) -> list[sqlite3.Row]:
         return self._query(
@@ -369,13 +363,11 @@ class Database:
                    COALESCE(SUM(CASE WHEN m.decision = 'discard' THEN i.size ELSE 0 END), 0)
                      AS reclaimable_bytes,
                    MAX(i.quality_score) AS max_quality,
-                   (SELECT MAX(m3.image_id) FROM group_members m3
-                     JOIN images i3 ON i3.id = m3.image_id
-                     WHERE m3.group_id = g.id AND i3.quality_score = MAX(i.quality_score)
-                   ) AS best_image_id
+                   MAX(rep.path) AS rep_path
             FROM groups g
             JOIN group_members m ON m.group_id = g.id
             JOIN images i ON i.id = m.image_id
+            LEFT JOIN images rep ON rep.id = g.rep_image_id
             WHERE {cond}
             GROUP BY g.id
             ORDER BY {order}

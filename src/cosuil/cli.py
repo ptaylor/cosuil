@@ -19,6 +19,7 @@ from rich.table import Table
 
 from .config import DEFAULT_EXTENSIONS, ScanConfig, config_dir, db_path, reports_dir, thumbs_dir
 from .db import Database
+from .format import fmt_bytes
 from .scanner import Scanner
 from .tui import ScanTUI
 
@@ -188,7 +189,7 @@ def report(
     summary.add_row("exact duplicate groups", f"{scan['exact_groups']:,}")
     summary.add_row("similar groups", f"{scan['similar_groups']:,}")
     summary.add_row("deep (CNN) groups", f"{scan['deep_groups']:,}")
-    summary.add_row("reclaimable", _fmt_bytes(_reclaimable(db, scan["id"])), style="bold green")
+    summary.add_row("reclaimable", fmt_bytes(_reclaimable(db, scan["id"])), style="bold green")
     errors = db.scan_errors(scan["id"])
     summary.add_row("unreadable files", f"{len(errors):,}", style="bold red" if errors else "bold green")
     warnings_count = db.scan_warning_count(scan["id"])
@@ -311,14 +312,6 @@ def _settings_lines(cfg: dict) -> list[str]:
     if excluded:
         lines.append("excluded: " + ", ".join(excluded))
     return lines
-
-
-def _fmt_bytes(n: int) -> str:
-    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
-        if n < 1024 or unit == "TiB":
-            return f"{n:.1f} {unit}" if unit != "B" else f"{n} B"
-        n /= 1024.0
-    return f"{n} B"
 
 
 def main() -> None:  # pragma: no cover - console entry point

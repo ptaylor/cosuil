@@ -220,7 +220,8 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
                                  page=page, per_page=per_page)
         for g in listing["groups"]:
             g["thumb_url"] = f"/api/images/{g['rep_image_id']}/thumb"
-            g["name"] = _member_name(db, g["id"])
+            rep_path = g.pop("rep_path", None)
+            g["name"] = Path(rep_path).name if rep_path else ""
         return listing
 
     @app.get("/api/groups/{group_id}")
@@ -291,13 +292,6 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         return FileResponse(preview, media_type=media)
 
     return app
-
-
-def _member_name(db: Database, group_id: int) -> str:
-    group = db.get_group(group_id)
-    if not group or not group["members"]:
-        return ""
-    return Path(group["members"][0]["path"]).name
 
 
 def _rel_dir(dirname: str, root: str) -> str:
