@@ -102,3 +102,21 @@ def test_previous_hashes_reuse_from_interrupted_scan(tmp_path):
     assert ("/root/b.jpg", 10, 2) in reused
     assert reused[("/root/b.jpg", 10, 2)].get("phash") is None
     db.close()
+
+
+def test_scan_errors_lists_paths(tmp_path):
+    db = Database(tmp_path / "cosuil.db")
+    scan_id = db.upsert_scan("/root", {})
+    db.insert_image_files(
+        scan_id,
+        [FileInfo("/root/a.jpg", 1, 1), FileInfo("/root/b.jpg", 2, 2)],
+    )
+    rows = db.get_image_rows(scan_id)
+    db.update_image(rows[0]["id"], error="boom")
+    db.update_image(rows[1]["id"], warning="truncated")
+
+    errors = db.scan_errors(scan_id)
+    assert [e["path"] for e in errors] == ["/root/a.jpg"]
+    assert errors[0]["error"] == "boom"
+    assert db.scan_warning_count(scan_id) == 1
+    db.close()

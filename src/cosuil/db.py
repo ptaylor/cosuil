@@ -446,3 +446,21 @@ class Database:
             (scan_id,),
         )
         return {r["decision"]: {"count": r["n"], "bytes": r["bytes"]} for r in rows}
+
+    def scan_errors(self, scan_id: int) -> list[dict]:
+        """Paths and error messages for every image that failed to decode."""
+        rows = self._query(
+            "SELECT path, error FROM images "
+            "WHERE scan_id = ? AND error IS NOT NULL AND error != '' "
+            "ORDER BY path",
+            (scan_id,),
+        )
+        return [dict(r) for r in rows]
+
+    def scan_warning_count(self, scan_id: int) -> int:
+        """Number of images decoded successfully but with a warning (e.g. truncated)."""
+        return self._query(
+            "SELECT COUNT(*) AS n FROM images "
+            "WHERE scan_id = ? AND warning IS NOT NULL AND warning != ''",
+            (scan_id,),
+        )[0]["n"]

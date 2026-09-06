@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import signal
 import sqlite3
 import sys
@@ -158,9 +159,9 @@ def serve(
 def report(
     root: Optional[Path] = typer.Argument(None, help="Show the latest scan of this directory"),
     scan_id: Optional[int] = typer.Option(None, "--scan", help="Show a specific scan id"),
-    limit: int = typer.Option(20, "--limit", "-n", help="Number of groups to list"),
+    limit: int = typer.Option(100, "--limit", "-n", help="Number of unreadable files to list"),
 ) -> None:
-    """Show scan summaries and the top duplicate groups."""
+    """Show a scan summary, its settings, and any unreadable files."""
     db = _open_db()
     if scan_id is not None:
         scan = db.get_scan(scan_id)
@@ -172,23 +173,45 @@ def report(
         console.print("[yellow]no scans found yet[/yellow] — run `cosuil scan DIR` first")
         raise typer.Exit(0)
 
-    table = Table(title=f"scan {scan['id']} — {scan['root']}",
-                  box=box.ROUNDED, border_style="magenta", title_style="bold magenta")
-    for col in ("kind", "count", "discard", "reclaimable", "status"):
-        table.add_column(col)
-    listing = db.list_groups(scan["id"], sort="bytes", page=1, per_page=limit)
-    for g in listing["groups"]:
-        table.add_row(
-            g["kind"],
-            str(g["member_count"]),
-            str(g["discard_count"]),
-            _fmt_bytes(g["reclaimable_bytes"]),
-            g["status"],
-        )
-    remaining = listing["total"] - min(limit, listing["total"])
-    if remaining > 0:
-        table.add_row(f"[dim]{remaining} more…[/dim]", "", "", "", "")
-    console.print(table)
+    summary = Table(title=f"scan {scan['id']} — {scan['root']}",
+                    box=box.ROUNDED, border_style="magenta", title_style="bold magenta",
+                    show_header=False)
+    summary.add_column("metric", style="bold cyan", no_wrap=True)
+    summary.add_column("value", style="bold white")
+    summary.add_row("status", scan["status"])
+    summary.add_row("started", scan["started_at"])
+    if scan.get("finished_at"):
+        summary.add_row("finished", scan["finished_at"])
+    summary.add_row("files walked", f"{scan['files_walked']:,}")
+    summary.add_row("images found", f"{scan['images_found']:,}")
+    summary.add_row("images hashed", f"{scan['images_hashed']:,}")
+    summary.add_row("exact duplicate groups", f"{scan['exact_groups']:,}")
+    summary.add_row("similar groups", f"{scan['similar_groups']:,}")
+    summary.add_row("deep (CNN) groups", f"{scan['deep_groups']:,}")
+    summary.add_row("reclaimable", _fmt_bytes(_reclaimable(db, scan["id"])), style="bold green")
+    errors = db.scan_errors(scan["id"])
+    summary.add_row("unreadable files", f"{len(errors):,}", style="bold red" if errors else "bold green")
+    warnings_count = db.scan_warning_count(scan["id"])
+    if warnings_count:
+        summary.add_row("files with warnings", f"{warnings_count:,}", style="bold yellow")
+    console.print(summary)
+
+    settings = _settings_lines(_json_load(scan.get("config_json")))
+    if settings:
+        console.print("[bold]settings[/bold]")
+        console.print("  " + "  ·  ".join(settings))
+    console.print()
+
+    if errors:
+        console.print("[bold red]unreadable files[/bold red]")
+        for e in errors[:limit]:
+            console.print(f"  [cyan]{e['path']}[/cyan]")
+            console.print(f"    [red]{e['error']}[/red]")
+        remaining = len(errors) - min(limit, len(errors))
+        if remaining > 0:
+            console.print(f"  [dim]{remaining} more…[/dim]")
+    else:
+        console.print("[green]no unreadable files[/green]")
 
 
 @app.command()
@@ -259,6 +282,35 @@ def _count_groups(db: Database, scan_id: int) -> int:
 def _reclaimable(db: Database, scan_id: int) -> int:
     stats = db.decision_stats(scan_id)
     return stats.get("discard", {}).get("bytes", 0)
+
+
+def _json_load(value: Optional[str]) -> dict:
+    if not value:
+        return {}
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return {}
+
+
+def _settings_lines(cfg: dict) -> list[str]:
+    lines: list[str] = []
+    kinds = cfg.get("kinds") or []
+    lines.append("tiers: " + (", ".join(kinds) if kinds else "—"))
+    lines.append(f"phash threshold {cfg.get('phash_threshold', '?')}")
+    if "deep" in kinds:
+        lines.append(f"cnn threshold {cfg.get('cnn_threshold', '?')}")
+    lines.append(
+        "hidden files included" if cfg.get("include_hidden") else "hidden files skipped"
+    )
+    if cfg.get("skip_libraries") is not None:
+        lines.append(
+            "photos libraries skipped" if cfg.get("skip_libraries") else "photos libraries scanned"
+        )
+    excluded = cfg.get("exclude_dirs") or []
+    if excluded:
+        lines.append("excluded: " + ", ".join(excluded))
+    return lines
 
 
 def _fmt_bytes(n: int) -> str:
