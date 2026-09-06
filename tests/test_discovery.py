@@ -88,3 +88,13 @@ def test_exclude_dir_by_absolute_path(tmp_path):
     _touch(tmp_path, "keep.jpg")
     found = list(iter_image_files(tmp_path, [".jpg"], exclude=(str(tmp_path / "Takeout"),)))
     assert len(found) == 1 and found[0].path.endswith("keep.jpg")
+
+
+def test_exclude_dir_absolute_path_case_insensitive(tmp_path):
+    # a lowercase rule must still match an on-disk directory named 'Takeout'
+    (tmp_path / "Takeout").mkdir()
+    _touch(tmp_path / "Takeout", "a.jpg")
+    _touch(tmp_path, "keep.jpg")
+    lower = str(tmp_path / "takeout")
+    found = list(iter_image_files(tmp_path, [".jpg"], exclude=(lower,)))
+    assert len(found) == 1 and found[0].path.endswith("keep.jpg")

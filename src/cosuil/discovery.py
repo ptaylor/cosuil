@@ -19,15 +19,17 @@ class FileInfo:
 
 def _excluded(dirpath: str, rules: Collection[str]) -> bool:
     """Match an exclusion rule: absolute/tilde paths match exactly; bare
-    names match any directory with that name."""
+    names match any directory with that name. Matching is case-insensitive
+    (macOS filesystems are case-insensitive, and users expect 'takeout' to
+    match a folder named 'Takeout')."""
     for rule in rules:
         rule = rule.strip()
         if not rule:
             continue
         if rule.startswith(("/", "~")):
-            if os.path.abspath(os.path.expanduser(rule)) == dirpath:
+            if os.path.abspath(os.path.expanduser(rule)).lower() == dirpath.lower():
                 return True
-        elif os.path.basename(dirpath) == rule:
+        elif os.path.basename(dirpath).lower() == rule.lower():
             return True
     return False
 
