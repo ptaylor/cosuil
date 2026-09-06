@@ -26,6 +26,7 @@ body {
   position: sticky; top: 0; z-index: 10;
 }
 .brand .logo { font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+.logo-icon { width: 22px; height: 22px; vertical-align: -4px; margin-right: 8px; border-radius: 5px; }
 .brand .sub { color: var(--dim); margin-left: 12px; font-size: 13px; }
 
 main { padding: 24px 20px 80px; max-width: 1400px; margin: 0 auto; }
