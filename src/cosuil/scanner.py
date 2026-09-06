@@ -192,7 +192,11 @@ class Scanner:
             walked = total_walked
 
         for fi in iter_image_files(
-            cfg.root, cfg.extensions, cfg.include_hidden, on_progress=on_walk
+            cfg.root,
+            cfg.extensions,
+            cfg.include_hidden,
+            skip_libraries=cfg.skip_libraries,
+            on_progress=on_walk,
         ):
             files.append(fi)
             if len(files) % 500 == 0:

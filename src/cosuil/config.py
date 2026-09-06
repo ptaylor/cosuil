@@ -100,6 +100,7 @@ class ScanConfig:
     phash_threshold: int = DEFAULT_PHASH_THRESHOLD
     cnn_threshold: float = DEFAULT_CNN_THRESHOLD
     include_hidden: bool = False
+    skip_libraries: bool = True  # skip macOS Photos Library bundles
     extensions: tuple[str, ...] = DEFAULT_EXTENSIONS
     workers: int = 0  # 0 = auto
     thumb_size: int = DEFAULT_THUMB_SIZE
@@ -131,6 +132,8 @@ class ScanConfig:
             cfg.thumb_size = int(scan_section.get("thumb_size", cfg.thumb_size))
         if "include_hidden" in scan_section:
             cfg.include_hidden = bool(scan_section["include_hidden"])
+        if "skip_libraries" in scan_section:
+            cfg.skip_libraries = bool(scan_section["skip_libraries"])
         ext = _coerce_tuple(scan_section.get("extensions"))
         if ext is not None:
             cfg.extensions = ext
@@ -150,6 +153,7 @@ class ScanConfig:
             "phash_threshold": self.phash_threshold,
             "cnn_threshold": self.cnn_threshold,
             "include_hidden": self.include_hidden,
+            "skip_libraries": self.skip_libraries,
             "extensions": list(self.extensions),
             "workers": self.workers,
             "thumb_size": self.thumb_size,

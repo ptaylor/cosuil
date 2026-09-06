@@ -113,6 +113,10 @@ python scripts/perf_smoke.py 2000     # synthetic perf smoke test
 ## Notes
 
 - "Google's format" = WebP; Apple HEIC/HEIF included via `pillow-heif`.
+- macOS Photos Library bundles (`.photoslibrary`) are skipped by default: their
+  `resources/derivatives` folders are Apple's internal cache, not real
+  duplicates, and deleting from them can corrupt the library. Set
+  `skip_libraries = false` under `[scan]` in the config to scan them anyway.
 - The CNN deep tier requires the `[cnn]` extra (torch + torchvision, prebuilt
   wheels — no C++ compiler needed) and runs only on images the other tiers did
   not group. It embeds images with torchvision's MobileNetV3; `hnswlib` is used

@@ -55,3 +55,20 @@ def test_progress_callback(tmp_path):
     list(iter_image_files(tmp_path, [".jpg"], on_progress=on_progress))
     assert walked[-1] == 6
     assert matched[-1] == 5
+
+
+def test_photos_library_skipped_by_default(tmp_path):
+    lib = tmp_path / "Photos Library.photoslibrary"
+    (lib / "resources").mkdir(parents=True)
+    _touch(lib / "resources", "derivative.jpg")
+    _touch(tmp_path, "normal.jpg")
+    found = [f.path for f in iter_image_files(tmp_path, [".jpg"])]
+    assert len(found) == 1 and found[0].endswith("normal.jpg")
+
+
+def test_photos_library_included_when_requested(tmp_path):
+    lib = tmp_path / "Photos Library.photoslibrary"
+    (lib / "resources").mkdir(parents=True)
+    _touch(lib / "resources", "derivative.jpg")
+    found = [f.path for f in iter_image_files(tmp_path, [".jpg"], skip_libraries=False)]
+    assert len(found) == 1 and "photoslibrary" in found[0]

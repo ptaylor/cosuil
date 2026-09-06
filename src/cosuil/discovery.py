@@ -21,20 +21,27 @@ def iter_image_files(
     root: str | os.PathLike,
     extensions: Collection[str],
     include_hidden: bool = False,
+    skip_libraries: bool = True,
     on_progress: ProgressFn | None = None,
 ) -> Iterator[FileInfo]:
     """Yield image files under *root*, matching extensions case-insensitively.
 
     Hidden files/directories are skipped unless *include_hidden* is set.
-    Symlinked directories are not followed.
+    macOS Photos Library bundles (`.photoslibrary`) are skipped unless
+    *skip_libraries* is False — their derivatives folders are cache files,
+    not user-managed duplicates. Symlinked directories are not followed.
     """
     ext_set = {str(e).lower() for e in extensions}
     root = os.path.abspath(os.fspath(root))
     walked = 0
     matched = 0
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-        if not include_hidden:
-            dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        dirnames[:] = sorted(
+            d
+            for d in dirnames
+            if (include_hidden or not d.startswith("."))
+            and not (skip_libraries and d.lower().endswith(".photoslibrary"))
+        )
         for name in filenames:
             walked += 1
             if not include_hidden and name.startswith("."):
