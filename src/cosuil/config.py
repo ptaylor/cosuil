@@ -36,7 +36,16 @@ DEFAULT_THUMB_SIZE = 256
 
 
 def config_dir() -> Path:
-    return Path(os.environ.get("COSUIL_CONFIG_DIR", user_config_dir(APP_NAME)))
+    override = os.environ.get("COSUIL_CONFIG_DIR")
+    if override:
+        return Path(override)
+    xdg = Path.home() / ".config" / APP_NAME
+    platform = Path(user_config_dir(APP_NAME))
+    # Prefer the XDG-style location (matches the README); fall back to the
+    # platform-native directory when a config already exists there.
+    if xdg.exists() or not platform.exists():
+        return xdg
+    return platform
 
 
 def data_dir() -> Path:
