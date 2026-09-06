@@ -44,7 +44,12 @@ h2 { font-size: 17px; margin: 0 0 14px; }
 .btn:hover { border-color: var(--accent-2); }
 .btn.primary { background: linear-gradient(135deg, #d23fa8, #7c4de0); border: none; font-weight: 600; }
 .btn.danger { background: #5c2330; border-color: #8a3a4a; color: #ff9aa6; font-weight: 600; }
-.btn:disabled { opacity: .5; cursor: default; }
+.btn:disabled {
+  background: var(--panel-2);
+  color: var(--dim);
+  border-color: var(--border);
+  cursor: default;
+}
 
 .field { margin: 18px 0; max-width: 640px; }
 .field label { display: block; color: var(--dim); font-size: 13px; margin-bottom: 6px; }
