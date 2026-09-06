@@ -489,6 +489,7 @@ async function refreshScansList() {
             </div>
             <div class="scan-actions">
               <button class="btn" data-inspect="${s.id}" ${s.status === "done" ? "" : "disabled"}>Inspect</button>
+              <button class="btn ghost danger" data-delete="${s.id}" ${s.status === "done" ? "" : "disabled"}>Delete</button>
             </div>
           </div>`;
         }).join("");
@@ -502,6 +503,7 @@ async function refreshScansList() {
             <div class="scan-actions">
               <button class="btn" data-inspect="${latest.id}" ${latest.status === "done" ? "" : "disabled"}>Inspect</button>
               <button class="btn" data-rescan="${latest.id}">Rescan</button>
+              <button class="btn ghost danger" data-delete="${latest.id}" ${latest.status === "done" ? "" : "disabled"}>Delete</button>
               ${expander}
             </div>
           </div>
@@ -515,6 +517,18 @@ async function refreshScansList() {
   );
   document.querySelectorAll("[data-rescan]").forEach((b) =>
     b.addEventListener("click", () => rescanScan(parseInt(b.dataset.rescan, 10)))
+  );
+  document.querySelectorAll("[data-delete]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const id = parseInt(b.dataset.delete, 10);
+      if (!confirm(`Delete scan ${id}? Its groups, decisions and image records will be removed.\nFiles on disk are never touched.`)) return;
+      try {
+        await api(`/api/scans/${id}`, { method: "DELETE" });
+        refreshScansList();
+      } catch (err) {
+        alert(`Delete failed: ${err.message}`);
+      }
+    })
   );
   document.querySelectorAll("[data-expand]").forEach((b) =>
     b.addEventListener("click", () => {

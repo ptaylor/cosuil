@@ -45,6 +45,8 @@ cosuil scan ~/Pictures --kind all     # add the CNN deep tier
 cosuil scan ~/Pictures -t 8           # looser similarity threshold (0–64)
 cosuil scan ~/Pictures --quiet        # plain output (pipes/CI)
 cosuil report                         # latest scan: groups + reclaimable bytes
+cosuil scans                          # list saved scans
+cosuil delete-scan --scan 3           # delete a saved scan (files untouched)
 cosuil serve                          # start review UI → http://127.0.0.1:8787
 ```
 

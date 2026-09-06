@@ -75,6 +75,8 @@ input[type="text"], input[type="number"], select {
 .badge.runs { background: var(--panel-2); color: var(--dim); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--dim); font-size: 12px; padding: 6px 10px; }
 .btn.ghost:hover { border-color: var(--border); color: var(--text); }
+.btn.ghost.danger { color: #c98a95; }
+.btn.ghost.danger:hover { border-color: var(--red); color: var(--red); }
 .scan-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .scan-root { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scan-actions { display: flex; gap: 8px; flex: none; }

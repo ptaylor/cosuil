@@ -176,6 +176,30 @@ def scans(
     console.print(table)
 
 
+@app.command()
+def delete_scan(
+    scan_id: int = typer.Option(..., "--scan", help="Scan id to delete (see `cosuil scans`)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+) -> None:
+    """Delete a saved scan and its review data (files on disk are never touched)."""
+    db = Database(db_path())
+    scan = db.get_scan(scan_id)
+    if scan is None:
+        console.print(f"[yellow]scan {scan_id} not found[/yellow]")
+        raise typer.Exit(1)
+    if scan["status"] == "running":
+        console.print("[bold red]cannot delete a running scan[/bold red]")
+        raise typer.Exit(1)
+    if not yes:
+        ok = typer.confirm(
+            f"Delete scan {scan_id} ({scan['root']}, {scan['images_found']} images)?"
+        )
+        if not ok:
+            raise typer.Exit(0)
+    db.delete_scan(scan_id)
+    console.print(f"[green]deleted scan {scan_id}[/green]")
+
+
 def _count_groups(db: Database, scan_id: int) -> int:
     return db.list_groups(scan_id, per_page=1)["total"]
 

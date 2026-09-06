@@ -70,6 +70,7 @@ class Database:
         self._conn = sqlite3.connect(self.path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(_SCHEMA)
         # migrations for databases created by older versions
         image_cols = {
@@ -133,6 +134,10 @@ class Database:
             "SELECT * FROM scans ORDER BY id DESC LIMIT ?", (limit,)
         )
         return [dict(r) for r in rows]
+
+    def delete_scan(self, scan_id: int) -> None:
+        """Delete a scan and (via FK cascade) its images, groups and decisions."""
+        self._execute("DELETE FROM scans WHERE id = ?", (scan_id,))
 
     # -- images --------------------------------------------------------------
     def insert_image_files(self, scan_id: int, files) -> list[int]:

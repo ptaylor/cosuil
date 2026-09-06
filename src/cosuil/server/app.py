@@ -135,11 +135,6 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
 
     @app.post("/api/scans/{scan_id}/rescan")
     def rescan(scan_id: int) -> dict:
-        """Rescan a previous scan's root with its saved settings.
-
-        Incremental: unchanged files reuse their hashes, so only new/changed
-        files are re-hashed.
-        """
         db = get_db()
         prev = db.get_scan(scan_id)
         if prev is None:
@@ -166,6 +161,18 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
             fresh=False,
         )
         return {"scan_id": _launch_scan(db, cfg)}
+
+    @app.delete("/api/scans/{scan_id}")
+    def delete_scan(scan_id: int) -> dict:
+        """Delete a scan and its groups/decisions. Files on disk are untouched."""
+        db = get_db()
+        scan = db.get_scan(scan_id)
+        if scan is None:
+            raise HTTPException(404, "scan not found")
+        if scan["status"] == "running" or scan_id in _RUNNING:
+            raise HTTPException(409, "scan is still running")
+        db.delete_scan(scan_id)
+        return {"ok": True}
 
     # -- groups -------------------------------------------------------------------
     @app.get("/api/scans/{scan_id}/groups")

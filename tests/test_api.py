@@ -134,5 +134,24 @@ def test_scan_history_and_rescan(client, fixtures_dir):
     assert client.post("/api/scans/999999/rescan").status_code == 404
 
 
+def test_delete_scan(client, fixtures_dir):
+    r = client.post(
+        "/api/scans",
+        json={"root": str(fixtures_dir), "kinds": ["exact", "similar"]},
+    )
+    scan_id = r.json()["scan_id"]
+    _wait_scan(client, scan_id)
+    assert client.get(f"/api/scans/{scan_id}").status_code == 200
+
+    r = client.delete(f"/api/scans/{scan_id}")
+    assert r.status_code == 200
+    assert client.get(f"/api/scans/{scan_id}").status_code == 404
+    assert client.get(f"/api/scans/{scan_id}/groups").status_code == 404
+    history = client.get("/api/scans").json()["scans"]
+    assert all(s["id"] != scan_id for s in history)
+    # deleting an unknown scan 404s
+    assert client.delete("/api/scans/999999").status_code == 404
+
+
 def test_unknown_scan_404(client):
     assert client.get("/api/scans/999999").status_code == 404
