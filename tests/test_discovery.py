@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from cosuil.discovery import iter_image_files
 
 
@@ -98,3 +100,10 @@ def test_exclude_dir_absolute_path_case_insensitive(tmp_path):
     lower = str(tmp_path / "takeout")
     found = list(iter_image_files(tmp_path, [".jpg"], exclude=(lower,)))
     assert len(found) == 1 and found[0].path.endswith("keep.jpg")
+
+
+def test_symlinked_files_excluded(tmp_path):
+    _touch(tmp_path, "real.jpg")
+    os.symlink(tmp_path / "real.jpg", tmp_path / "link.jpg")
+    found = [f.path.split("/")[-1] for f in iter_image_files(tmp_path, [".jpg"])]
+    assert found == ["real.jpg"]

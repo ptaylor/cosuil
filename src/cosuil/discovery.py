@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from dataclasses import dataclass
 from typing import Callable, Collection, Iterator
 
@@ -49,7 +50,7 @@ def iter_image_files(
     *skip_libraries* is False — their derivatives folders are cache files,
     not user-managed duplicates. Directories matching *exclude* (absolute
     paths or bare directory names) are skipped. Symlinked directories are
-    not followed.
+    not followed, and symbolic-link files are skipped.
     """
     ext_set = {str(e).lower() for e in extensions}
     root = os.path.abspath(os.fspath(root))
@@ -71,9 +72,11 @@ def iter_image_files(
                 continue
             full = os.path.join(dirpath, name)
             try:
-                st = os.stat(full)
+                st = os.lstat(full)
             except OSError:
                 continue
+            if stat.S_ISLNK(st.st_mode):
+                continue  # symbolic links are not real duplicates
             matched += 1
             yield FileInfo(full, st.st_size, st.st_mtime_ns)
         if on_progress is not None:
