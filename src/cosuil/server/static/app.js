@@ -289,6 +289,7 @@ function renderDetail() {
         <div class="actions">
           <button class="btn keep ${m.decision === "keep" ? "keep-on" : ""}" data-act="keep">Keep</button>
           <button class="btn discard ${m.decision === "discard" ? "discard-on" : ""}" data-act="discard">Discard</button>
+          <button class="btn copy-path" data-i="${i}" title="Copy the full path to this photo">Copy path</button>
         </div>
       </div>
     </div>`;
@@ -303,6 +304,7 @@ function renderDetail() {
     });
     el.querySelector(".keep").addEventListener("click", () => setDecision(i, "keep"));
     el.querySelector(".discard").addEventListener("click", () => setDecision(i, "discard"));
+    el.querySelector(".copy-path").addEventListener("click", () => copyPath(i));
     el.querySelector(".img-wrap").addEventListener("click", (e) => {
       if (e.target.closest("img")) toggleZoom(e);
     });
@@ -354,6 +356,38 @@ function keepLocation(locIdx) {
     m.decision = state.locOf[i] === locIdx ? "keep" : "discard";
   });
   applyPreviewState();
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    // fallback for browsers without clipboard permissions
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+}
+
+async function copyPath(i) {
+  const m = state.detail.members[i];
+  const ok = await copyText(m.path);
+  const btn = document.querySelector(`.preview[data-i="${i}"] .copy-path`);
+  if (ok && btn) {
+    const old = btn.textContent;
+    btn.textContent = "✓ copied";
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  } else if (!ok) {
+    alert(`Path (copy manually):\n${m.path}`);
+  }
 }
 
 async function saveDecisions(advance) {
@@ -443,6 +477,7 @@ document.addEventListener("keydown", (e) => {
       case "ArrowDown": groupNav(1); e.preventDefault(); break;
       case "k": case "K": setDecision(state.selected, "keep"); break;
       case "x": case "X": setDecision(state.selected, "discard"); break;
+      case "c": case "C": copyPath(state.selected); break;
       case "r": case "R": resetDecisions(); break;
       case "z": case "Z": toggleZoom(); break;
       case "b": case "B": blink(); break;
