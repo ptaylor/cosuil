@@ -42,7 +42,7 @@ h2 { font-size: 17px; margin: 0 0 14px; }
   border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
 }
 .btn:hover { border-color: var(--accent-2); }
-.btn.primary { background: linear-gradient(135deg, #d23fa8, #7c4de0); border: none; font-weight: 600; }
+.btn.primary { background: #6d4bb5; border: none; font-weight: 600; color: #fff; }
 .btn.danger { background: #5c2330; border-color: #8a3a4a; color: #ff9aa6; font-weight: 600; }
 .btn:disabled {
   background: var(--panel-2);
