@@ -239,7 +239,12 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         if db.get_group(group_id) is None:
             raise HTTPException(404, "group not found")
         db.set_decisions(group_id, {int(k): v for k, v in req.decisions.items()})
-        db.mark_reviewed(group_id)
+        # a group is 'reviewed' only while it has actual decisions
+        members = db.get_group(group_id)["members"]
+        if any(m["decision"] in ("keep", "discard") for m in members):
+            db.mark_reviewed(group_id)
+        else:
+            db.mark_pending(group_id)
         return {"ok": True}
 
     @app.post("/api/scans/{scan_id}/apply")

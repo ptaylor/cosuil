@@ -405,7 +405,15 @@ async function saveDecisions(advance) {
   try { await api(`/api/groups/${d.id}/decisions`, { method: "POST", body: JSON.stringify({ decisions }) }); }
   catch (e) { alert(`Could not save decisions: ${e.message}`); return false; }
   const g = state.groups[state.groupIdx];
-  if (g) g.status = "reviewed";
+  const hasDecisions = Object.values(decisions).some((v) => v !== "undecided");
+  if (g) g.status = hasDecisions ? "reviewed" : "pending";
+  d.status = g ? g.status : d.status;
+  // keep the header badge in sync
+  const badges = document.querySelectorAll("#detail-kind .badge");
+  if (badges.length >= 2) {
+    badges[1].className = `badge ${d.status}`;
+    badges[1].textContent = d.status;
+  }
   const scan = await api(`/api/scans/${state.scanId}`);
   state.scan = scan;
   renderApplyBar();
@@ -423,10 +431,22 @@ function autosuggest() {
   applyPreviewState();
 }
 
-function resetDecisions() {
+async function resetDecisions() {
   const d = state.detail;
   d.members.forEach((m) => { m.decision = "undecided"; });
-  applyPreviewState();
+  // clearing decisions returns the group to 'pending'
+  const decisions = {};
+  d.members.forEach((m) => { decisions[String(m.image_id)] = "undecided"; });
+  try {
+    await api(`/api/groups/${d.id}/decisions`, { method: "POST", body: JSON.stringify({ decisions }) });
+  } catch (e) { /* non-fatal */ }
+  const g = state.groups[state.groupIdx];
+  if (g) g.status = "pending";
+  d.status = "pending";
+  renderDetail();
+  const scan = await api(`/api/scans/${state.scanId}`);
+  state.scan = scan;
+  renderApplyBar();
 }
 
 /* ---- compare tools ---- */

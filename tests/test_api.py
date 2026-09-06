@@ -106,6 +106,27 @@ def test_full_review_flow(client, fixtures_dir):
     assert detail["status"] == "reviewed"
 
 
+def test_decisions_cleared_returns_group_to_pending(client, fixtures_dir):
+    r = client.post(
+        "/api/scans",
+        json={"root": str(fixtures_dir), "kinds": ["exact", "similar"]},
+    )
+    scan_id = r.json()["scan_id"]
+    _wait_scan(client, scan_id)
+    group = _first_group(client, scan_id)
+    members = group["members"]
+
+    # save a real decision -> reviewed
+    decisions = {str(m["image_id"]): "keep" for m in members[:1]}
+    client.post(f"/api/groups/{group['id']}/decisions", json={"decisions": decisions})
+    assert client.get(f"/api/groups/{group['id']}").json()["status"] == "reviewed"
+
+    # clearing everything (Reset) -> pending again
+    cleared = {str(m["image_id"]): "undecided" for m in members}
+    client.post(f"/api/groups/{group['id']}/decisions", json={"decisions": cleared})
+    assert client.get(f"/api/groups/{group['id']}").json()["status"] == "pending"
+
+
 def test_scan_of_missing_dir_rejected(client):
     r = client.post("/api/scans", json={"root": "/definitely/not/here"})
     assert r.status_code == 400

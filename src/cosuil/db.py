@@ -327,6 +327,12 @@ class Database:
             (time.strftime("%Y-%m-%dT%H:%M:%S"), group_id),
         )
 
+    def mark_pending(self, group_id: int) -> None:
+        self._execute(
+            "UPDATE groups SET status = 'pending', reviewed_at = NULL WHERE id = ?",
+            (group_id,),
+        )
+
     def discard_list(self, scan_id: int) -> list[dict]:
         rows = self._query(
             """
