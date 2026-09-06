@@ -465,21 +465,48 @@ async function applyDecisions() {
 async function refreshScansList() {
   const data = await api("/api/scans");
   const scans = data.scans || [];
-  $("#scans-list").innerHTML = scans.length
-    ? scans.map((s) => {
-        const groups = s.exact_groups + s.similar_groups + s.deep_groups;
-        const inspectDisabled = s.status === "done" ? "" : "disabled";
+  // group by root: show the latest scan per directory, older runs behind an expander
+  const byRoot = new Map();
+  scans.forEach((s) => {
+    if (!byRoot.has(s.root)) byRoot.set(s.root, []);
+    byRoot.get(s.root).push(s);
+  });
+  const roots = [...byRoot.entries()];
+  $("#scans-list").innerHTML = roots.length
+    ? roots.map(([root, runs], ri) => {
+        const latest = runs[0];
+        const groups = latest.exact_groups + latest.similar_groups + latest.deep_groups;
+        const runBadge = runs.length > 1 ? `<span class="badge runs">×${runs.length}</span>` : "";
+        const expander = runs.length > 1
+          ? `<button class="btn ghost" data-expand="${ri}">${runs.length - 1} older run${runs.length > 2 ? "s" : ""}</button>`
+          : "";
+        const older = runs.slice(1).map((s) => {
+          const g = s.exact_groups + s.similar_groups + s.deep_groups;
+          return `
+          <div class="scan-row old hidden">
+            <div class="scan-info">
+              <span class="sub"><span class="badge ${s.status}">${s.status}</span> ${s.started_at} · ${s.images_found} images · ${g} groups</span>
+            </div>
+            <div class="scan-actions">
+              <button class="btn" data-inspect="${s.id}" ${s.status === "done" ? "" : "disabled"}>Inspect</button>
+            </div>
+          </div>`;
+        }).join("");
         return `
-    <div class="scan-row">
-      <div class="scan-info">
-        <span class="scan-root" title="${escapeHtml(s.root)}">${escapeHtml(s.root)}</span>
-        <span class="sub"><span class="badge ${s.status}">${s.status}</span> ${s.started_at} · ${s.images_found} images · ${groups} groups</span>
-      </div>
-      <div class="scan-actions">
-        <button class="btn" data-inspect="${s.id}" ${inspectDisabled}>Inspect</button>
-        <button class="btn" data-rescan="${s.id}">Rescan</button>
-      </div>
-    </div>`;
+        <div class="scan-block">
+          <div class="scan-row">
+            <div class="scan-info">
+              <span class="scan-root" title="${escapeHtml(root)}">${escapeHtml(root)}</span>
+              <span class="sub"><span class="badge ${latest.status}">${latest.status}</span> ${runBadge} ${latest.started_at} · ${latest.images_found} images · ${groups} groups</span>
+            </div>
+            <div class="scan-actions">
+              <button class="btn" data-inspect="${latest.id}" ${latest.status === "done" ? "" : "disabled"}>Inspect</button>
+              <button class="btn" data-rescan="${latest.id}">Rescan</button>
+              ${expander}
+            </div>
+          </div>
+          ${older}
+        </div>`;
       })
       .join("")
     : `<div class="sub">No scans yet — enter a directory above and scan it.</div>`;
@@ -488,6 +515,17 @@ async function refreshScansList() {
   );
   document.querySelectorAll("[data-rescan]").forEach((b) =>
     b.addEventListener("click", () => rescanScan(parseInt(b.dataset.rescan, 10)))
+  );
+  document.querySelectorAll("[data-expand]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const block = b.closest(".scan-block");
+      const olds = block.querySelectorAll(".scan-row.old");
+      const wasHidden = olds.length && olds[0].classList.contains("hidden");
+      olds.forEach((o) => o.classList.toggle("hidden", !wasHidden));
+      b.textContent = wasHidden
+        ? "hide older runs"
+        : `${olds.length} older run${olds.length > 1 ? "s" : ""}`;
+    })
   );
 }
 
