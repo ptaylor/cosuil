@@ -86,6 +86,8 @@ def test_broken_file_logged_not_fatal(fixtures_dir, tmp_dirs):
 def test_incremental_rescan_reuses_hashes(fixtures_dir, tmp_dirs):
     first = _run_scan(fixtures_dir)
     second = _run_scan(fixtures_dir, fresh=False)
+    # one record per directory: the rescan replaces the same scan record
+    assert second["scan_id"] == first["scan_id"]
     # second scan re-hashes nothing except the file with no reusable hash (broken.jpg)
     assert second["images_hashed"] == 1
     assert second["hashes_reused"] >= 10

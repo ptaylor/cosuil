@@ -123,6 +123,9 @@ python scripts/perf_smoke.py 2000     # synthetic perf smoke test
 
 ## Notes
 
+- Each directory keeps a single scan record: rescanning updates it in place,
+  and deleting a scan removes that directory's record and review data.
+  Photo files on disk are never touched by either.
 - "Google's format" = WebP; Apple HEIC/HEIF included via `pillow-heif`.
 - macOS Photos Library bundles (`.photoslibrary`) are skipped by default: their
   `resources/derivatives` folders are Apple's internal cache, not real

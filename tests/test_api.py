@@ -145,15 +145,18 @@ def test_scan_history_and_rescan(client, fixtures_dir):
     history = client.get("/api/scans").json()["scans"]
     assert any(s["id"] == scan_id for s in history)
 
-    # rescan is incremental: only the unreadable file gets re-hashed
+    # rescan updates the same record; only the unreadable file is re-hashed
     r = client.post(f"/api/scans/{scan_id}/rescan")
     assert r.status_code == 200
     new_id = r.json()["scan_id"]
-    assert new_id != scan_id
+    assert new_id == scan_id
     scan2 = _wait_scan(client, new_id)
     assert scan2["status"] == "done"
     assert scan2["images_found"] >= 10
     assert scan2["images_hashed"] <= 1
+    # still exactly one record for this directory
+    roots = [s["root"] for s in client.get("/api/scans").json()["scans"]]
+    assert roots.count(str(fixtures_dir)) == 1
 
     # rescan of an unknown scan 404s
     assert client.post("/api/scans/999999/rescan").status_code == 404

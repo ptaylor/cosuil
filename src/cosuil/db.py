@@ -78,6 +78,11 @@ class Database:
         }
         if "warning" not in image_cols:
             self._conn.execute("ALTER TABLE images ADD COLUMN warning TEXT")
+        # one scan record per directory: keep only the latest per root
+        self._conn.execute(
+            "DELETE FROM scans WHERE id NOT IN "
+            "(SELECT MAX(id) FROM scans GROUP BY root)"
+        )
         self._conn.commit()
 
     # -- low-level helpers -------------------------------------------------
@@ -101,12 +106,39 @@ class Database:
             self._conn.close()
 
     # -- scans --------------------------------------------------------------
-    def create_scan(self, root: str, config_json: dict) -> int:
-        cur = self._execute(
-            "INSERT INTO scans (root, config_json, started_at) VALUES (?, ?, ?)",
-            (root, json.dumps(config_json), time.strftime("%Y-%m-%dT%H:%M:%S")),
-        )
-        return int(cur.lastrowid)
+    def upsert_scan(self, root: str, config_json: dict) -> int:
+        """One scan record per directory.
+
+        Reuses the existing row for *root* (replacing its results) or creates
+        a new one. Raises RuntimeError if a scan for the directory is running.
+        """
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, status FROM scans WHERE root = ?", (root,)
+            ).fetchone()
+            if row is None:
+                cur = self._conn.execute(
+                    "INSERT INTO scans (root, config_json, started_at) VALUES (?, ?, ?)",
+                    (root, json.dumps(config_json), now),
+                )
+                self._conn.commit()
+                return int(cur.lastrowid)
+            if row["status"] == "running":
+                raise RuntimeError("a scan for this directory is already running")
+            scan_id = int(row["id"])
+            # replace the previous results (groups cascade to their members)
+            self._conn.execute("DELETE FROM groups WHERE scan_id = ?", (scan_id,))
+            self._conn.execute("DELETE FROM images WHERE scan_id = ?", (scan_id,))
+            self._conn.execute(
+                "UPDATE scans SET config_json = ?, status = 'running', error = NULL, "
+                "files_walked = 0, images_found = 0, images_hashed = 0, "
+                "exact_groups = 0, similar_groups = 0, deep_groups = 0, "
+                "started_at = ?, finished_at = NULL WHERE id = ?",
+                (json.dumps(config_json), now, scan_id),
+            )
+            self._conn.commit()
+            return scan_id
 
     def update_scan(self, scan_id: int, **fields: Any) -> None:
         if not fields:

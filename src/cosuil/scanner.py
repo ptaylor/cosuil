@@ -159,14 +159,20 @@ class Scanner:
         return out
 
     # -- main entry ------------------------------------------------------------
-    def run(self, scan_id: int | None = None) -> dict:
+    def run(self, scan_id: int | None = None, reused: dict | None = None) -> dict:
         db, cfg = self.db, self.cfg
         kinds = tuple(k for k in cfg.kinds if k in ("exact", "similar", "deep"))
-        self.scan_id = scan_id if scan_id is not None else db.create_scan(
-            str(cfg.root), cfg.to_json()
+        # capture previous hashes BEFORE replacing the scan record, so
+        # incremental rescanning keeps working under the upsert model
+        if reused is None:
+            reused = {} if cfg.fresh else db.previous_hashes(str(cfg.root))
+        self.scan_id = (
+            scan_id
+            if scan_id is not None
+            else db.upsert_scan(str(cfg.root), cfg.to_json())
         )
         try:
-            self._run(kinds)
+            self._run(kinds, reused)
         except Exception as exc:  # pragma: no cover - defensive
             db.update_scan(
                 self.scan_id,
@@ -177,7 +183,7 @@ class Scanner:
             raise
         return self._finish()
 
-    def _run(self, kinds: tuple[str, ...]) -> None:
+    def _run(self, kinds: tuple[str, ...], reused: dict) -> None:
         db, cfg = self.db, self.cfg
         c = self.counters
 
@@ -220,9 +226,6 @@ class Scanner:
         path_of = {r["id"]: r["path"] for r in rows}
         c.message = f"indexed {len(rows)} files"
         self._emit(force=True)
-
-        # ---- hash reuse from previous scan -----------------------------------
-        reused = {} if cfg.fresh else db.previous_hashes(str(cfg.root))
 
         exact_groups: list[list[int]] = []
         similar_groups: list[list[int]] = []

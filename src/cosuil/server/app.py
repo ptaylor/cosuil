@@ -25,14 +25,18 @@ _RUNNING: dict[int, threading.Thread] = {}
 
 
 def _launch_scan(db: Database, cfg: ScanConfig) -> int:
-    """Create a scan row and run it in a background thread."""
+    """Prepare a scan record (upsert per directory) and run it in a thread."""
+    reused = {} if cfg.fresh else db.previous_hashes(str(cfg.root))
+    try:
+        scan_id = db.upsert_scan(str(cfg.root), cfg.to_json())
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
     scanner = Scanner(db, cfg)
-    scan_id = db.create_scan(str(cfg.root), cfg.to_json())
     scanner.scan_id = scan_id
 
     def worker() -> None:
         try:
-            scanner.run(scan_id=scan_id)
+            scanner.run(scan_id=scan_id, reused=reused)
         except Exception as exc:  # pragma: no cover - defensive
             db.update_scan(scan_id, status="error", error=f"{type(exc).__name__}: {exc}")
         finally:
