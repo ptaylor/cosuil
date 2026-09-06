@@ -108,6 +108,11 @@ python scripts/perf_smoke.py 2000     # synthetic perf smoke test
 ## Notes
 
 - "Google's format" = WebP; Apple HEIC/HEIF included via `pillow-heif`.
-- The CNN deep tier requires the `[cnn]` extra and runs only on images the
-  other tiers did not group.
+- The CNN deep tier requires the `[cnn]` extra (torch + torchvision, prebuilt
+  wheels — no C++ compiler needed) and runs only on images the other tiers did
+  not group. It embeds images with torchvision's MobileNetV3; `hnswlib` is used
+  automatically as an accelerator when installed.
 - Exact copies inside a similar group are badged *exact copy* in the UI.
+- The deep tier needs PyTorch. On **Intel (x86_64) macOS**, PyTorch wheels stop
+  at 2.2.x and require **Python ≤ 3.12** — use such a venv for `[cnn]` there.
+  (Apple Silicon and Linux have no such limit.)
