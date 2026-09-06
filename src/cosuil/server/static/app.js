@@ -150,7 +150,7 @@ function renderGrid() {
         <div class="name">${escapeHtml(g.name || "…")}</div>
         <div class="meta">
           <span class="badge ${g.kind}">${g.kind}×${g.member_count}</span>
-          <span class="bytes">${fmtBytes(g.reclaimable_bytes)}</span>
+          <span class="bytes" title="Disk space reclaimed when discard-marked files are moved to trash">${fmtBytes(g.reclaimable_bytes)}</span>
         </div>
       </div>
     </div>`;
