@@ -71,19 +71,69 @@ class Database:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys = ON")
+        self._conn.execute("PRAGMA busy_timeout = 5000")
         self._conn.executescript(_SCHEMA)
-        # migrations for databases created by older versions
-        image_cols = {
-            row[1] for row in self._conn.execute("PRAGMA table_info(images)")
-        }
-        if "warning" not in image_cols:
-            self._conn.execute("ALTER TABLE images ADD COLUMN warning TEXT")
-        # one scan record per directory: keep only the latest per root
-        self._conn.execute(
-            "DELETE FROM scans WHERE id NOT IN "
-            "(SELECT MAX(id) FROM scans GROUP BY root)"
-        )
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """One-time migrations, gated by PRAGMA user_version."""
+        version = int(self._conn.execute("PRAGMA user_version").fetchone()[0])
+        if version < 1:
+            image_cols = {
+                row[1] for row in self._conn.execute("PRAGMA table_info(images)")
+            }
+            if "warning" not in image_cols:
+                self._conn.execute("ALTER TABLE images ADD COLUMN warning TEXT")
+            self._conn.execute("PRAGMA user_version = 1")
+        if version < 2:
+            # one scan record per directory: collapse duplicates to the latest.
+            # Literal stale ids keep the deletes index-driven and fast.
+            dup = self._conn.execute(
+                "SELECT 1 FROM scans GROUP BY root HAVING COUNT(*) > 1 LIMIT 1"
+            ).fetchone()
+            if dup:
+                stale_ids = [
+                    row[0]
+                    for row in self._conn.execute(
+                        "SELECT id FROM scans WHERE id NOT IN "
+                        "(SELECT MAX(id) FROM scans GROUP BY root)"
+                    )
+                ]
+                if stale_ids:
+                    marks = ",".join("?" * len(stale_ids))
+                    # With foreign_keys ON, each images-row delete triggers a
+                    # full scan of group_members (no image_id index), making
+                    # this quadratic. Disable FK for this one-time, dependency-
+                    # ordered delete instead.
+                    self._conn.execute("PRAGMA foreign_keys = OFF")
+                    try:
+                        self._conn.execute("BEGIN IMMEDIATE")
+                        try:
+                            self._conn.execute(
+                                f"DELETE FROM group_members WHERE group_id IN "
+                                f"(SELECT id FROM groups WHERE scan_id IN ({marks}))",
+                                stale_ids,
+                            )
+                            self._conn.execute(
+                                f"DELETE FROM groups WHERE scan_id IN ({marks})",
+                                stale_ids,
+                            )
+                            self._conn.execute(
+                                f"DELETE FROM images WHERE scan_id IN ({marks})",
+                                stale_ids,
+                            )
+                            self._conn.execute(
+                                f"DELETE FROM scans WHERE id IN ({marks})",
+                                stale_ids,
+                            )
+                            self._conn.commit()
+                        except Exception:
+                            self._conn.rollback()
+                            raise
+                    finally:
+                        self._conn.execute("PRAGMA foreign_keys = ON")
+            self._conn.execute("PRAGMA user_version = 2")
 
     # -- low-level helpers -------------------------------------------------
     def _execute(self, sql: str, params: Sequence[Any] = ()) -> sqlite3.Cursor:

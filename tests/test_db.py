@@ -41,6 +41,7 @@ def test_duplicate_scans_collapsed_to_latest(tmp_path):
         "INSERT INTO scans (root, config_json, started_at) VALUES (?, ?, ?)",
         ("/same/root", "{}", "2026-01-02T00:00:00"),
     )
+    conn.execute("PRAGMA user_version = 1")  # simulate a not-yet-migrated database
     conn.commit()
     conn.close()
 
@@ -50,5 +51,13 @@ def test_duplicate_scans_collapsed_to_latest(tmp_path):
     count = conn.execute(
         "SELECT COUNT(*) FROM scans WHERE root = '/same/root'"
     ).fetchone()[0]
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
     conn.close()
     assert count == 1
+    assert version == 2
+
+    # reopening does not rerun migrations
+    Database(db_file).close()
+    conn = sqlite3.connect(db_file)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    conn.close()

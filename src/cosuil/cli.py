@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import sys
 import threading
 import webbrowser
@@ -23,6 +24,18 @@ app = typer.Typer(no_args_is_help=True, add_completion=False,
 console = Console()
 
 KIND_HELP = "Which detection tiers to run: exact, similar, both, or all (adds CNN deep tier)."
+
+
+def _open_db() -> Database:
+    """Open the database, failing fast with a friendly message if it's busy."""
+    try:
+        return Database(db_path())
+    except sqlite3.OperationalError as exc:
+        console.print(
+            f"[bold red]database unavailable:[/bold red] {exc} "
+            f"(another cosúil process may be running a scan)"
+        )
+        raise typer.Exit(1) from exc
 
 
 def _kinds_for(kind: str) -> tuple[str, ...]:
@@ -75,7 +88,7 @@ def scan(
         fresh=fresh,
         exclude_dirs=tuple(exclude) if exclude else None,
     )
-    db = Database(db_path())
+    db = _open_db()
     tui = ScanTUI(str(root), quiet=quiet, verbose=verbose, console=console)
 
     is_tty = sys.stdout.isatty()
@@ -128,7 +141,7 @@ def report(
     limit: int = typer.Option(20, "--limit", "-n", help="Number of groups to list"),
 ) -> None:
     """Show scan summaries and the top duplicate groups."""
-    db = Database(db_path())
+    db = _open_db()
     if scan_id is not None:
         scan = db.get_scan(scan_id)
     elif root is not None:
@@ -177,7 +190,7 @@ def scans(
     limit: int = typer.Option(20, "--limit", "-n", help="Number of scans to list"),
 ) -> None:
     """List previous scans (saved in the local database)."""
-    db = Database(db_path())
+    db = _open_db()
     rows = db.list_scans(limit)
     if not rows:
         console.print("[yellow]no scans yet[/yellow] — run `cosuil scan DIR` first")
@@ -201,7 +214,7 @@ def delete_scan(
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
 ) -> None:
     """Delete a saved scan and its review data (files on disk are never touched)."""
-    db = Database(db_path())
+    db = _open_db()
     scan = db.get_scan(scan_id)
     if scan is None:
         console.print(f"[yellow]scan {scan_id} not found[/yellow]")
