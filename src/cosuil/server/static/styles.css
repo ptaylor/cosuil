@@ -125,6 +125,13 @@ input[type="text"], input[type="number"], select {
 .compare-tools .hint { color: #5e5e78; font-size: 12px; margin-left: 8px; }
 
 .loc-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.suggestion-bar {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  background: #1c1f2e; border: 1px solid var(--accent-2); border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: var(--text);
+}
+.suggestion-bar b { color: var(--accent-2); }
+.suggestion-bar .btn { flex: none; }
 .loc-chip { display: inline-flex; align-items: center; gap: 7px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--text); cursor: pointer; }
 .loc-chip:hover { border-color: var(--accent); }
 .loc-chip .loc-count { color: var(--dim); }

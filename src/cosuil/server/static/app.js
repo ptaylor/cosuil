@@ -17,6 +17,8 @@ const state = {
   polling: null,
   locs: [],          // distinct directories in the current group
   locOf: [],         // member index -> location index
+  learnedFolder: null,  // folder the user consistently keeps (exact groups)
+  folderConfirms: {},   // folder -> number of confirming exact groups
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -322,6 +324,7 @@ function renderDetail() {
     });
   });
   applyPreviewState();
+  renderSuggestion();
 }
 
 function applyPreviewState() {
@@ -408,6 +411,8 @@ async function saveDecisions(advance) {
   d.members.forEach((m) => { decisions[String(m.image_id)] = m.decision; });
   try { await api(`/api/groups/${d.id}/decisions`, { method: "POST", body: JSON.stringify({ decisions }) }); }
   catch (e) { alert(`Could not save decisions: ${e.message}`); return false; }
+  learnFromGroup(d);
+  renderSuggestion();
   const g = state.groups[state.groupIdx];
   const hasDecisions = Object.values(decisions).some((v) => v !== "undecided");
   if (g) g.status = hasDecisions ? "reviewed" : "pending";
@@ -423,6 +428,52 @@ async function saveDecisions(advance) {
   renderApplyBar();
   if (advance) groupNav(1);
   return true;
+}
+
+function folderOf(m) {
+  return m.rel_dir || m.dirname;
+}
+
+// Learn from exact groups: if every kept photo lives in one folder and the
+// group also has photos elsewhere, count it as a confirmation for that folder.
+function learnFromGroup(d) {
+  if (d.kind !== "exact") return;
+  const kept = d.members.filter((m) => m.decision === "keep");
+  if (!kept.length) return;
+  const folder = folderOf(kept[0]);
+  if (!kept.every((m) => folderOf(m) === folder)) return;
+  if (!d.members.some((m) => folderOf(m) !== folder)) return;
+  state.folderConfirms[folder] = (state.folderConfirms[folder] || 0) + 1;
+  if (state.folderConfirms[folder] >= 5 && state.learnedFolder !== folder) {
+    state.learnedFolder = folder;
+  }
+}
+
+function renderSuggestion() {
+  const bar = $("#suggestion-bar");
+  const d = state.detail;
+  const folder = state.learnedFolder;
+  const inF = folder ? d.members.filter((m) => folderOf(m) === folder).length : 0;
+  const outF = d.members.length - inF;
+  if (folder && d.kind === "exact" && inF > 0 && outF > 0) {
+    bar.classList.remove("hidden");
+    bar.innerHTML =
+      `<span>Keep the ${inF} photo${inF === 1 ? "" : "s"} in <b>${escapeHtml(folder)}</b> and discard the other ${outF}?</span>` +
+      `<button id="suggestion-apply" class="btn primary">Apply</button>` +
+      `<button id="suggestion-dismiss" class="btn ghost" title="Stop suggesting this folder">Don't suggest again</button>`;
+    $("#suggestion-apply").addEventListener("click", () => {
+      const f = state.learnedFolder;
+      d.members.forEach((m) => { m.decision = folderOf(m) === f ? "keep" : "discard"; });
+      applyPreviewState();
+    });
+    $("#suggestion-dismiss").addEventListener("click", () => {
+      state.learnedFolder = null;
+      state.folderConfirms = {};
+      renderSuggestion();
+    });
+  } else {
+    bar.classList.add("hidden");
+  }
 }
 
 function autosuggest() {

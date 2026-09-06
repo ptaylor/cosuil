@@ -64,6 +64,9 @@ cosuil serve                          # start review UI → http://127.0.0.1:878
    - Each photo shows its folder (color-coded). Clicking a folder chip keeps
      everything from that folder and discards the rest; marking one photo as
      *keep* auto-keeps its folder-mates too.
+   - After you keep all photos from one folder in a few *exact*-duplicate
+     groups, cosúil offers a one-click "keep this folder, discard the rest"
+     suggestion for later groups (session-only, dismissible).
    - Groups start *pending* and become *reviewed* once you save decisions for
      them (use the status filter to see what's left). Reset clears a group's
      decisions and returns it to *pending*.
