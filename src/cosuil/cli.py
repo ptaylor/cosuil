@@ -50,6 +50,10 @@ def scan(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Plain output, no live TUI"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Echo activity lines"),
     fresh: bool = typer.Option(False, "--fresh", help="Ignore hashes from previous scans"),
+    exclude: Optional[list[str]] = typer.Option(
+        None, "--exclude",
+        help="Skip a directory: absolute path or bare directory name (repeatable)",
+    ),
 ) -> None:
     """Scan ROOT for duplicate and similar images."""
     if not root.exists() or not root.is_dir():
@@ -69,6 +73,7 @@ def scan(
         workers=workers,
         thumb_size=256,
         fresh=fresh,
+        exclude_dirs=tuple(exclude) if exclude else None,
     )
     db = Database(db_path())
     tui = ScanTUI(str(root), quiet=quiet, verbose=verbose, console=console)

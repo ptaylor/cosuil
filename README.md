@@ -87,6 +87,8 @@ phash_threshold = 6
 cnn_threshold = 0.85
 thumb_size = 256
 include_hidden = false
+skip_libraries = true
+exclude_dirs = ["/Users/you/Pictures/Takeout", "Screenshots"]
 extensions = [".gif", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".ppm", ".pgm"]
 
 [quality]

@@ -51,6 +51,7 @@ class ScanRequest(BaseModel):
     cnn_threshold: float = 0.85
     include_hidden: bool = False
     fresh: bool = False
+    exclude_dirs: list[str] = []
 
 
 class DecisionsRequest(BaseModel):
@@ -83,6 +84,7 @@ def build_rescan_config(prev: dict) -> ScanConfig:
         workers=0,
         thumb_size=int(saved.get("thumb_size", 256)),
         fresh=False,
+        exclude_dirs=tuple(saved.get("exclude_dirs", [])),
     )
     cfg.skip_libraries = bool(saved.get("skip_libraries", True))
     return cfg
@@ -162,6 +164,7 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
             workers=0,
             thumb_size=256,
             fresh=req.fresh,
+            exclude_dirs=tuple(req.exclude_dirs),
         )
         return {"scan_id": _launch_scan(db, cfg)}
 

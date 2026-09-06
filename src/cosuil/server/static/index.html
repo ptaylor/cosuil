@@ -39,6 +39,11 @@
       <label class="check"><input type="checkbox" id="hidden-input"> include hidden files</label>
       <label class="check"><input type="checkbox" id="fresh-input"> fresh scan (ignore previous hashes)</label>
     </div>
+    <div class="field">
+      <label for="exclude-input">Exclude directories
+        <span class="hint">comma-separated · absolute paths or bare folder names</span></label>
+      <input id="exclude-input" type="text" placeholder="Takeout, ~/Pictures/Screenshots">
+    </div>
     <button id="btn-start" class="btn primary">Start scan</button>
     <div id="scan-progress" class="progress hidden">
       <div class="progress-stage" id="progress-stage">starting…</div>

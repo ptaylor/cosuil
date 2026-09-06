@@ -110,6 +110,7 @@ class ScanConfig:
     cnn_threshold: float = DEFAULT_CNN_THRESHOLD
     include_hidden: bool = False
     skip_libraries: bool = True  # skip macOS Photos Library bundles
+    exclude_dirs: tuple[str, ...] = ()  # directories to skip (paths or names)
     extensions: tuple[str, ...] = DEFAULT_EXTENSIONS
     workers: int = 0  # 0 = auto
     thumb_size: int = DEFAULT_THUMB_SIZE
@@ -119,7 +120,8 @@ class ScanConfig:
     @classmethod
     def from_toml(cls, root: Path, kinds: tuple[str, ...], phash_threshold: int,
                   cnn_threshold: float, include_hidden: bool, extensions: tuple[str, ...],
-                  workers: int, thumb_size: int, fresh: bool) -> "ScanConfig":
+                  workers: int, thumb_size: int, fresh: bool,
+                  exclude_dirs: tuple[str, ...] | None = None) -> "ScanConfig":
         cfg = cls(
             root=root,
             kinds=kinds,
@@ -143,6 +145,12 @@ class ScanConfig:
             cfg.include_hidden = bool(scan_section["include_hidden"])
         if "skip_libraries" in scan_section:
             cfg.skip_libraries = bool(scan_section["skip_libraries"])
+        if exclude_dirs is not None:
+            cfg.exclude_dirs = tuple(exclude_dirs)
+        else:
+            ex = _coerce_tuple(scan_section.get("exclude_dirs"))
+            if ex is not None:
+                cfg.exclude_dirs = ex
         ext = _coerce_tuple(scan_section.get("extensions"))
         if ext is not None:
             cfg.extensions = ext
@@ -163,6 +171,7 @@ class ScanConfig:
             "cnn_threshold": self.cnn_threshold,
             "include_hidden": self.include_hidden,
             "skip_libraries": self.skip_libraries,
+            "exclude_dirs": list(self.exclude_dirs),
             "extensions": list(self.extensions),
             "workers": self.workers,
             "thumb_size": self.thumb_size,

@@ -68,6 +68,7 @@ async function startScan() {
     phash_threshold: parseInt($("#threshold-input").value || "6", 10),
     include_hidden: $("#hidden-input").checked,
     fresh: $("#fresh-input").checked,
+    exclude_dirs: $("#exclude-input").value.split(",").map((s) => s.trim()).filter(Boolean),
   };
   $("#btn-start").disabled = true;
   $("#scan-progress").classList.remove("hidden");
@@ -126,6 +127,9 @@ function renderScanSettings(scan) {
   parts.push(cfg.include_hidden ? "hidden files included" : "hidden files skipped");
   if (cfg.skip_libraries !== undefined) {
     parts.push(cfg.skip_libraries ? "photos libraries skipped" : "photos libraries scanned");
+  }
+  if ((cfg.exclude_dirs || []).length) {
+    parts.push(`excluded: ${cfg.exclude_dirs.join(", ")}`);
   }
   parts.push(`${scan.files_walked} files walked · ${scan.images_found} images`);
   if (scan.status === "done" && scan.finished_at) {

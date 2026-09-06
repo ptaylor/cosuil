@@ -72,3 +72,19 @@ def test_photos_library_included_when_requested(tmp_path):
     _touch(lib / "resources", "derivative.jpg")
     found = [f.path for f in iter_image_files(tmp_path, [".jpg"], skip_libraries=False)]
     assert len(found) == 1 and "photoslibrary" in found[0]
+
+
+def test_exclude_dir_by_name(tmp_path):
+    (tmp_path / "Takeout").mkdir()
+    _touch(tmp_path / "Takeout", "a.jpg")
+    _touch(tmp_path, "keep.jpg")
+    found = [f.path for f in iter_image_files(tmp_path, [".jpg"], exclude=("Takeout",))]
+    assert len(found) == 1 and found[0].endswith("keep.jpg")
+
+
+def test_exclude_dir_by_absolute_path(tmp_path):
+    (tmp_path / "Takeout").mkdir()
+    _touch(tmp_path / "Takeout", "a.jpg")
+    _touch(tmp_path, "keep.jpg")
+    found = list(iter_image_files(tmp_path, [".jpg"], exclude=(str(tmp_path / "Takeout"),)))
+    assert len(found) == 1 and found[0].path.endswith("keep.jpg")

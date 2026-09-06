@@ -196,6 +196,7 @@ class Scanner:
             cfg.extensions,
             cfg.include_hidden,
             skip_libraries=cfg.skip_libraries,
+            exclude=cfg.exclude_dirs,
             on_progress=on_walk,
         ):
             files.append(fi)

@@ -9,7 +9,8 @@ from cosuil.db import Database
 from cosuil.scanner import Scanner
 
 
-def _run_scan(fixtures: Path, kinds=("exact", "similar"), fresh: bool = False) -> dict:
+def _run_scan(fixtures: Path, kinds=("exact", "similar"), fresh: bool = False,
+              exclude: tuple | None = None) -> dict:
     cfg = ScanConfig.from_toml(
         root=fixtures,
         kinds=kinds,
@@ -20,6 +21,7 @@ def _run_scan(fixtures: Path, kinds=("exact", "similar"), fresh: bool = False) -
         workers=1,
         thumb_size=256,
         fresh=fresh,
+        exclude_dirs=exclude,
     )
     db = Database(db_path())
     scanner = Scanner(db, cfg)
@@ -105,3 +107,17 @@ def test_scan_empty_directory(tmp_path, tmp_dirs):
     result = _run_scan(tmp_path)
     assert result["images_found"] == 0
     assert Database(db_path()).get_scan(result["scan_id"])["status"] == "done"
+
+
+def test_excluded_directory_not_scanned(fixtures_dir, tmp_dirs):
+    import shutil
+
+    (fixtures_dir / "Takeout").mkdir()
+    shutil.copyfile(fixtures_dir / "base.jpg", fixtures_dir / "Takeout" / "base.jpg")
+    shutil.copyfile(fixtures_dir / "other.jpg", fixtures_dir / "Takeout" / "other.jpg")
+
+    result = _run_scan(fixtures_dir, exclude=("Takeout",))
+    db = Database(db_path())
+    rows = db.get_image_rows(result["scan_id"])
+    assert all("Takeout" not in r["path"] for r in rows)
+    assert result["images_found"] >= 10  # everything except the Takeout copies

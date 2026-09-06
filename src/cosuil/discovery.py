@@ -17,11 +17,27 @@ class FileInfo:
     mtime_ns: int
 
 
+def _excluded(dirpath: str, rules: Collection[str]) -> bool:
+    """Match an exclusion rule: absolute/tilde paths match exactly; bare
+    names match any directory with that name."""
+    for rule in rules:
+        rule = rule.strip()
+        if not rule:
+            continue
+        if rule.startswith(("/", "~")):
+            if os.path.abspath(os.path.expanduser(rule)) == dirpath:
+                return True
+        elif os.path.basename(dirpath) == rule:
+            return True
+    return False
+
+
 def iter_image_files(
     root: str | os.PathLike,
     extensions: Collection[str],
     include_hidden: bool = False,
     skip_libraries: bool = True,
+    exclude: Collection[str] = (),
     on_progress: ProgressFn | None = None,
 ) -> Iterator[FileInfo]:
     """Yield image files under *root*, matching extensions case-insensitively.
@@ -29,7 +45,9 @@ def iter_image_files(
     Hidden files/directories are skipped unless *include_hidden* is set.
     macOS Photos Library bundles (`.photoslibrary`) are skipped unless
     *skip_libraries* is False — their derivatives folders are cache files,
-    not user-managed duplicates. Symlinked directories are not followed.
+    not user-managed duplicates. Directories matching *exclude* (absolute
+    paths or bare directory names) are skipped. Symlinked directories are
+    not followed.
     """
     ext_set = {str(e).lower() for e in extensions}
     root = os.path.abspath(os.fspath(root))
@@ -41,6 +59,7 @@ def iter_image_files(
             for d in dirnames
             if (include_hidden or not d.startswith("."))
             and not (skip_libraries and d.lower().endswith(".photoslibrary"))
+            and not _excluded(os.path.join(dirpath, d), exclude)
         )
         for name in filenames:
             walked += 1
