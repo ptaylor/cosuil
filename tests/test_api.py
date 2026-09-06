@@ -107,5 +107,32 @@ def test_scan_of_missing_dir_rejected(client):
     assert r.status_code == 400
 
 
+def test_scan_history_and_rescan(client, fixtures_dir):
+    r = client.post(
+        "/api/scans",
+        json={"root": str(fixtures_dir), "kinds": ["exact", "similar"]},
+    )
+    assert r.status_code == 200
+    scan_id = r.json()["scan_id"]
+    _wait_scan(client, scan_id)
+
+    # history endpoint lists the scan
+    history = client.get("/api/scans").json()["scans"]
+    assert any(s["id"] == scan_id for s in history)
+
+    # rescan is incremental: only the unreadable file gets re-hashed
+    r = client.post(f"/api/scans/{scan_id}/rescan")
+    assert r.status_code == 200
+    new_id = r.json()["scan_id"]
+    assert new_id != scan_id
+    scan2 = _wait_scan(client, new_id)
+    assert scan2["status"] == "done"
+    assert scan2["images_found"] >= 10
+    assert scan2["images_hashed"] <= 1
+
+    # rescan of an unknown scan 404s
+    assert client.post("/api/scans/999999/rescan").status_code == 404
+
+
 def test_unknown_scan_404(client):
     assert client.get("/api/scans/999999").status_code == 404

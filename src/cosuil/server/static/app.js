@@ -459,6 +459,66 @@ async function applyDecisions() {
   }
 }
 
+/* ================= scan history ================= */
+
+async function refreshScansList() {
+  const data = await api("/api/scans");
+  const scans = data.scans || [];
+  $("#scans-list").innerHTML = scans.length
+    ? scans.map((s) => {
+        const groups = s.exact_groups + s.similar_groups + s.deep_groups;
+        const inspectDisabled = s.status === "done" ? "" : "disabled";
+        return `
+    <div class="scan-row">
+      <div class="scan-info">
+        <span class="scan-root" title="${escapeHtml(s.root)}">${escapeHtml(s.root)}</span>
+        <span class="sub"><span class="badge ${s.status}">${s.status}</span> ${s.started_at} · ${s.images_found} images · ${groups} groups</span>
+      </div>
+      <div class="scan-actions">
+        <button class="btn" data-inspect="${s.id}" ${inspectDisabled}>Inspect</button>
+        <button class="btn" data-rescan="${s.id}">Rescan</button>
+      </div>
+    </div>`;
+      })
+      .join("")
+    : `<div class="sub">No scans yet — enter a directory above and scan it.</div>`;
+  document.querySelectorAll("[data-inspect]").forEach((b) =>
+    b.addEventListener("click", () => openScanById(parseInt(b.dataset.inspect, 10)))
+  );
+  document.querySelectorAll("[data-rescan]").forEach((b) =>
+    b.addEventListener("click", () => rescanScan(parseInt(b.dataset.rescan, 10)))
+  );
+}
+
+async function openScanById(scanId) {
+  const scan = await api(`/api/scans/${scanId}`);
+  if (scan.status === "error") {
+    alert(`Scan ${scanId} failed: ${scan.error || "unknown error"}`);
+    return;
+  }
+  state.scanId = scanId;
+  if (scan.status !== "done") {
+    $("#scan-progress").classList.remove("hidden");
+    $("#btn-start").disabled = true;
+    pollScan();
+    return;
+  }
+  await openResults(scan);
+}
+
+async function rescanScan(scanId) {
+  $("#btn-start").disabled = true;
+  $("#scan-progress").classList.remove("hidden");
+  try {
+    const { scan_id } = await api(`/api/scans/${scanId}/rescan`, { method: "POST" });
+    state.scanId = scan_id;
+    pollScan();
+  } catch (err) {
+    alert(`Rescan failed: ${err.message}`);
+    $("#btn-start").disabled = false;
+  }
+}
+
 /* ================= wiring ================= */
 
 function escapeHtml(s) {
@@ -470,6 +530,7 @@ $("#btn-start").addEventListener("click", startScan);
 $("#btn-new-scan").addEventListener("click", () => {
   stopBlink();
   showView("scan");
+  refreshScansList();
 });
 $("#btn-back").addEventListener("click", () => {
   stopBlink();
@@ -501,3 +562,5 @@ $("#browse-select").addEventListener("click", () => {
   $("#root-input").value = browseCurrent;
   $("#modal-browse").classList.add("hidden");
 });
+
+refreshScansList();

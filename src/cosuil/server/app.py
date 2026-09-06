@@ -24,6 +24,26 @@ STATIC_DIR = Path(__file__).parent / "static"
 _RUNNING: dict[int, threading.Thread] = {}
 
 
+def _launch_scan(db: Database, cfg: ScanConfig) -> int:
+    """Create a scan row and run it in a background thread."""
+    scanner = Scanner(db, cfg)
+    scan_id = db.create_scan(str(cfg.root), cfg.to_json())
+    scanner.scan_id = scan_id
+
+    def worker() -> None:
+        try:
+            scanner.run(scan_id=scan_id)
+        except Exception as exc:  # pragma: no cover - defensive
+            db.update_scan(scan_id, status="error", error=f"{type(exc).__name__}: {exc}")
+        finally:
+            _RUNNING.pop(scan_id, None)
+
+    thread = threading.Thread(target=worker, daemon=True, name=f"scan-{scan_id}")
+    _RUNNING[scan_id] = thread
+    thread.start()
+    return scan_id
+
+
 class ScanRequest(BaseModel):
     root: str
     kinds: list[str] = ["exact", "similar"]
@@ -111,22 +131,41 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
             thumb_size=256,
             fresh=req.fresh,
         )
-        scanner = Scanner(db, cfg)
-        scan_id = db.create_scan(str(root), cfg.to_json())
-        scanner.scan_id = scan_id
+        return {"scan_id": _launch_scan(db, cfg)}
 
-        def worker() -> None:
-            try:
-                scanner.run(scan_id=scan_id)
-            except Exception as exc:  # pragma: no cover - defensive
-                db.update_scan(scan_id, status="error", error=f"{type(exc).__name__}: {exc}")
-            finally:
-                _RUNNING.pop(scan_id, None)
+    @app.post("/api/scans/{scan_id}/rescan")
+    def rescan(scan_id: int) -> dict:
+        """Rescan a previous scan's root with its saved settings.
 
-        thread = threading.Thread(target=worker, daemon=True, name=f"scan-{scan_id}")
-        _RUNNING[scan_id] = thread
-        thread.start()
-        return {"scan_id": scan_id}
+        Incremental: unchanged files reuse their hashes, so only new/changed
+        files are re-hashed.
+        """
+        db = get_db()
+        prev = db.get_scan(scan_id)
+        if prev is None:
+            raise HTTPException(404, "scan not found")
+        try:
+            saved = json.loads(prev["config_json"] or "{}")
+        except ValueError:
+            saved = {}
+        root = Path(prev["root"])
+        if not root.exists() or not root.is_dir():
+            raise HTTPException(400, f"{root} no longer exists")
+        kinds = tuple(
+            k for k in saved.get("kinds", []) if k in ("exact", "similar", "deep")
+        ) or ("exact", "similar")
+        cfg = ScanConfig.from_toml(
+            root=root,
+            kinds=kinds,
+            phash_threshold=int(saved.get("phash_threshold", 6)),
+            cnn_threshold=float(saved.get("cnn_threshold", 0.85)),
+            include_hidden=bool(saved.get("include_hidden", False)),
+            extensions=DEFAULT_EXTENSIONS,
+            workers=0,
+            thumb_size=int(saved.get("thumb_size", 256)),
+            fresh=False,
+        )
+        return {"scan_id": _launch_scan(db, cfg)}
 
     # -- groups -------------------------------------------------------------------
     @app.get("/api/scans/{scan_id}/groups")

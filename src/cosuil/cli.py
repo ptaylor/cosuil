@@ -153,6 +153,29 @@ def report(
     console.print(table)
 
 
+@app.command()
+def scans(
+    limit: int = typer.Option(20, "--limit", "-n", help="Number of scans to list"),
+) -> None:
+    """List previous scans (saved in the local database)."""
+    db = Database(db_path())
+    rows = db.list_scans(limit)
+    if not rows:
+        console.print("[yellow]no scans yet[/yellow] — run `cosuil scan DIR` first")
+        return
+    table = Table(title="scans", box=box.ROUNDED, border_style="magenta",
+                  title_style="bold magenta")
+    for col in ("id", "root", "status", "images", "groups", "started"):
+        table.add_column(col)
+    for s in rows:
+        groups = s["exact_groups"] + s["similar_groups"] + s["deep_groups"]
+        table.add_row(
+            str(s["id"]), s["root"], s["status"], str(s["images_found"]),
+            str(groups), s["started_at"],
+        )
+    console.print(table)
+
+
 def _count_groups(db: Database, scan_id: int) -> int:
     return db.list_groups(scan_id, per_page=1)["total"]
 

@@ -65,6 +65,18 @@ input[type="text"], input[type="number"], select {
 .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s; }
 .progress-stats { color: var(--dim); font-size: 13px; margin-top: 10px; }
 
+/* ---- previous scans ---- */
+.scans-history { margin-top: 30px; max-width: 760px; }
+.scans-history h2 { font-size: 17px; margin: 0 0 4px; }
+.scans-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.scan-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+.scan-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.scan-root { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-actions { display: flex; gap: 8px; flex: none; }
+.badge.running { background: #24405c; color: #7cc4ff; }
+.badge.done { background: #25402b; color: var(--green); }
+.badge.error { background: #4a2430; color: #ff9aa6; }
+
 /* ---- results ---- */
 .results-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .filters { display: flex; gap: 10px; }
