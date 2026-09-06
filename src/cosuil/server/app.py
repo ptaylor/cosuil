@@ -57,6 +57,37 @@ class DecisionsRequest(BaseModel):
     decisions: dict[str, str]  # image_id -> keep|discard|undecided
 
 
+def build_rescan_config(prev: dict) -> ScanConfig:
+    """Reconstruct a ScanConfig from a saved scan, honoring its settings.
+
+    Scans saved before skip_libraries existed have no such key and default to
+    skipping Photos Library bundles.
+    """
+    try:
+        saved = json.loads(prev["config_json"] or "{}")
+    except ValueError:
+        saved = {}
+    root = Path(prev["root"])
+    if not root.exists() or not root.is_dir():
+        raise HTTPException(400, f"{root} no longer exists")
+    kinds = tuple(
+        k for k in saved.get("kinds", []) if k in ("exact", "similar", "deep")
+    ) or ("exact", "similar")
+    cfg = ScanConfig.from_toml(
+        root=root,
+        kinds=kinds,
+        phash_threshold=int(saved.get("phash_threshold", 6)),
+        cnn_threshold=float(saved.get("cnn_threshold", 0.85)),
+        include_hidden=bool(saved.get("include_hidden", False)),
+        extensions=DEFAULT_EXTENSIONS,
+        workers=0,
+        thumb_size=int(saved.get("thumb_size", 256)),
+        fresh=False,
+    )
+    cfg.skip_libraries = bool(saved.get("skip_libraries", True))
+    return cfg
+
+
 def create_app(db: Optional[Database] = None) -> FastAPI:
     app = FastAPI(title="cosúil", version="0.1.0")
     state = {"db": db}
@@ -136,31 +167,16 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
 
     @app.post("/api/scans/{scan_id}/rescan")
     def rescan(scan_id: int) -> dict:
+        """Rescan a previous scan's root with its saved settings.
+
+        Incremental: unchanged files reuse their hashes, so only new/changed
+        files are re-hashed.
+        """
         db = get_db()
         prev = db.get_scan(scan_id)
         if prev is None:
             raise HTTPException(404, "scan not found")
-        try:
-            saved = json.loads(prev["config_json"] or "{}")
-        except ValueError:
-            saved = {}
-        root = Path(prev["root"])
-        if not root.exists() or not root.is_dir():
-            raise HTTPException(400, f"{root} no longer exists")
-        kinds = tuple(
-            k for k in saved.get("kinds", []) if k in ("exact", "similar", "deep")
-        ) or ("exact", "similar")
-        cfg = ScanConfig.from_toml(
-            root=root,
-            kinds=kinds,
-            phash_threshold=int(saved.get("phash_threshold", 6)),
-            cnn_threshold=float(saved.get("cnn_threshold", 0.85)),
-            include_hidden=bool(saved.get("include_hidden", False)),
-            extensions=DEFAULT_EXTENSIONS,
-            workers=0,
-            thumb_size=int(saved.get("thumb_size", 256)),
-            fresh=False,
-        )
+        cfg = build_rescan_config(prev)
         return {"scan_id": _launch_scan(db, cfg)}
 
     @app.delete("/api/scans/{scan_id}")

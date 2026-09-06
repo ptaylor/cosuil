@@ -159,3 +159,23 @@ def test_delete_scan(client, fixtures_dir):
 
 def test_unknown_scan_404(client):
     assert client.get("/api/scans/999999").status_code == 404
+
+
+def test_rescan_config_honors_saved_library_setting(fixtures_dir, tmp_dirs):
+    from cosuil.server.app import build_rescan_config
+
+    # scans saved before skip_libraries existed default to skipping libraries
+    prev = {
+        "root": str(fixtures_dir),
+        "config_json": '{"kinds": ["exact", "similar"], "phash_threshold": 6, "include_hidden": false}',
+    }
+    cfg = build_rescan_config(prev)
+    assert cfg.skip_libraries is True
+    assert cfg.kinds == ("exact", "similar")
+    assert cfg.phash_threshold == 6
+
+    # explicit saved setting wins
+    prev["config_json"] = '{"kinds": ["similar"], "skip_libraries": false}'
+    cfg = build_rescan_config(prev)
+    assert cfg.skip_libraries is False
+    assert cfg.kinds == ("similar",)

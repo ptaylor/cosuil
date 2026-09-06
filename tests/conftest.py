@@ -11,11 +11,12 @@ import pytest
 
 @pytest.fixture()
 def tmp_dirs(tmp_path, monkeypatch):
-    """Redirect cosuil data/cache dirs to a per-test temp location."""
+    """Redirect cosuil data/cache/config dirs to per-test temp locations."""
     data = tmp_path / "data"
     cache = tmp_path / "cache"
     monkeypatch.setenv("COSUIL_DATA_DIR", str(data))
     monkeypatch.setenv("COSUIL_CACHE_DIR", str(cache))
+    monkeypatch.setenv("COSUIL_CONFIG_DIR", str(tmp_path / "config"))
     return data, cache
 
 
