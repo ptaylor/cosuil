@@ -204,6 +204,14 @@ function renderDetail() {
   const dupCounts = {};
   d.members.forEach((m) => { if (m.blake3) dupCounts[m.blake3] = (dupCounts[m.blake3] || 0) + 1; });
 
+  // blink is useless when every member is the exact same bytes
+  const allIdentical = d.members.length > 1 &&
+    d.members.every((m) => m.blake3 && m.blake3 === d.members[0].blake3);
+  $("#btn-blink").disabled = allIdentical;
+  $("#btn-blink").title = allIdentical
+    ? "Nothing to compare — all files are byte-identical"
+    : "Alternate images to spot differences (B)";
+
   // color-coded locations: each distinct directory gets a color chip
   const locs = [];
   const locOf = d.members.map((m) => {
@@ -379,6 +387,7 @@ function stopBlink() {
 }
 
 function blink() {
+  if ($("#btn-blink").disabled) return;  // byte-identical group: nothing to blink
   if (state.blinkTimer) { stopBlink(); return; }
   const previews = [...document.querySelectorAll("#compare-stage .preview")];
   if (previews.length < 2) return;
