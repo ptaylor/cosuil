@@ -56,8 +56,11 @@ class ScanTUI:
                 )
             self._hashing.update(
                 self._hash_task,
+                total=counters.images_found,
                 completed=min(counters.images_hashed, counters.images_found),
             )
+        if self._live is not None:
+            self._live.update(self._render())
 
     def log(self, line: str) -> None:
         self.activity.append(line)
@@ -101,7 +104,8 @@ class ScanTUI:
         header.append("cosúil", style="bold magenta")
         header.append("  scan ", style="dim")
         header.append(self.root, style="cyan")
-        header.append(f"   [dim]{self._stage_label()}[/dim]")
+        header.append("   ")
+        header.append(self._stage_label(), style="dim")
 
         stats = Text()
         stats.append(f"files {c.files_walked}", style="bold cyan")
