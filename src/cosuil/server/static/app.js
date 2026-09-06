@@ -285,6 +285,9 @@ function applyPreviewState() {
     el.classList.toggle("selected", i === state.selected);
     el.classList.toggle("keep", m.decision === "keep");
     el.classList.toggle("discard", m.decision === "discard");
+    // keep the buttons in sync so toggles are visible
+    el.querySelector(".keep")?.classList.toggle("keep-on", m.decision === "keep");
+    el.querySelector(".discard")?.classList.toggle("discard-on", m.decision === "discard");
   });
 }
 
@@ -345,6 +348,12 @@ function autosuggest() {
   applyPreviewState();
 }
 
+function resetDecisions() {
+  const d = state.detail;
+  d.members.forEach((m) => { m.decision = "undecided"; });
+  applyPreviewState();
+}
+
 /* ---- compare tools ---- */
 
 function toggleZoom(e) {
@@ -394,6 +403,7 @@ document.addEventListener("keydown", (e) => {
       case "ArrowDown": groupNav(1); e.preventDefault(); break;
       case "k": case "K": setDecision(state.selected, "keep"); break;
       case "x": case "X": setDecision(state.selected, "discard"); break;
+      case "r": case "R": resetDecisions(); break;
       case "z": case "Z": toggleZoom(); break;
       case "b": case "B": blink(); break;
       case "s": case "S": saveDecisions(false); break;
@@ -469,6 +479,7 @@ $("#btn-back").addEventListener("click", () => {
 $("#btn-prev-group").addEventListener("click", () => groupNav(-1));
 $("#btn-next-group").addEventListener("click", () => groupNav(1));
 $("#btn-autosuggest").addEventListener("click", autosuggest);
+$("#btn-reset").addEventListener("click", resetDecisions);
 $("#btn-zoom").addEventListener("click", () => toggleZoom());
 $("#btn-blink").addEventListener("click", blink);
 $("#btn-apply").addEventListener("click", applyDecisions);
