@@ -589,7 +589,12 @@ function escapeHtml(s) {
 }
 
 $("#btn-start").addEventListener("click", startScan);
-$("#btn-new-scan").addEventListener("click", () => {
+$("#btn-home").addEventListener("click", () => {
+  stopBlink();
+  showView("scan");
+  refreshScansList();
+});
+$("#btn-results-home").addEventListener("click", () => {
   stopBlink();
   showView("scan");
   refreshScansList();
