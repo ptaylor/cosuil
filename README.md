@@ -41,6 +41,18 @@ python -m venv .venv
 .venv/bin/pip install -e ".[avif]"    # optional AVIF support
 ```
 
+Then put `cosuil` on your `PATH` so it works from any terminal without
+activating the virtualenv:
+
+```bash
+./install.sh                          # symlink into ~/bin (created if missing)
+./install.sh /usr/local/bin           # or any other directory on your PATH
+```
+
+`install.sh` is idempotent — re-running it just reports or refreshes the
+symlink — and warns you if the target directory is not on your `PATH`.
+Without it you'd have to use `.venv/bin/cosuil` or activate the venv first.
+
 ## Usage
 
 ```bash
