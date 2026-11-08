@@ -256,6 +256,9 @@ def scans(
 def delete_scan(
     scan_id: int = typer.Option(..., "--scan", help="Scan id to delete (see `cosuil scans`)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Delete a scan still marked running (e.g. left by a crashed process)"),
 ) -> None:
     """Delete a saved scan and its review data (files on disk are never touched)."""
     db = _open_db()
@@ -263,8 +266,10 @@ def delete_scan(
     if scan is None:
         console.print(f"[yellow]scan {scan_id} not found[/yellow]")
         raise typer.Exit(1)
-    if scan["status"] == "running":
-        console.print("[bold red]cannot delete a running scan[/bold red]")
+    if scan["status"] == "running" and not force:
+        console.print(
+            "[bold red]scan is marked running[/bold red] — wait for it to finish, "
+            "or pass --force if it was left behind by a crashed process")
         raise typer.Exit(1)
     if not yes:
         ok = typer.confirm(
@@ -272,7 +277,9 @@ def delete_scan(
         )
         if not ok:
             raise typer.Exit(0)
-    db.delete_scan(scan_id)
+    if not db.delete_scan(scan_id):
+        console.print(f"[yellow]scan {scan_id} not found[/yellow]")
+        raise typer.Exit(1)
     console.print(f"[green]deleted scan {scan_id}[/green]")
 
 

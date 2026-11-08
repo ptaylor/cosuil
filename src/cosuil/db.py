@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS group_members (
     decision TEXT NOT NULL DEFAULT 'undecided',
     PRIMARY KEY (group_id, image_id)
 );
+-- Removing an image (after it is trashed) must not full-scan group_members.
+CREATE INDEX IF NOT EXISTS idx_members_image ON group_members(image_id);
 """
 
 
@@ -219,9 +221,26 @@ class Database:
         )
         return [dict(r) for r in rows]
 
-    def delete_scan(self, scan_id: int) -> None:
-        """Delete a scan and (via FK cascade) its images, groups and decisions."""
-        self._execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+    def delete_scan(self, scan_id: int) -> bool:
+        """Delete a scan with its images, groups and decisions, atomically.
+
+        Children are deleted explicitly, in dependency order, inside one
+        transaction: a failure part-way rolls back instead of leaving a scan
+        with half its data. Returns False if the scan did not exist.
+        """
+        with self._lock:
+            try:
+                self._conn.execute(
+                    "DELETE FROM group_members WHERE group_id IN "
+                    "(SELECT id FROM groups WHERE scan_id = ?)", (scan_id,))
+                self._conn.execute("DELETE FROM groups WHERE scan_id = ?", (scan_id,))
+                self._conn.execute("DELETE FROM images WHERE scan_id = ?", (scan_id,))
+                cur = self._conn.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+                self._conn.commit()
+                return cur.rowcount > 0
+            except Exception:
+                self._conn.rollback()
+                raise
 
     # -- images --------------------------------------------------------------
     def insert_image_files(self, scan_id: int, files) -> None:
@@ -410,19 +429,92 @@ class Database:
             (group_id,),
         )
 
-    def discard_list(self, scan_id: int) -> list[dict]:
+    def apply_candidates(self, scan_id: int) -> list[dict]:
+        """Every membership row relevant to a trash run, with file identity.
+
+        Includes the groups that hold a discard decision and every other
+        membership of an image marked discard anywhere, so callers can spot an
+        image discarded in one group but kept in another.
+        """
         rows = self._query(
             """
-            SELECT i.id AS image_id, i.path, i.size, g.id AS group_id
+            SELECT m.group_id, m.decision, i.id AS image_id, i.path, i.size, i.mtime_ns
             FROM group_members m
             JOIN images i ON i.id = m.image_id
             JOIN groups g ON g.id = m.group_id
-            WHERE g.scan_id = ? AND m.decision = 'discard'
-            ORDER BY i.path
+            WHERE g.scan_id = ?
+              AND (g.id IN (SELECT group_id FROM group_members WHERE decision = 'discard')
+                   OR m.image_id IN (SELECT image_id FROM group_members
+                                     WHERE decision = 'discard'))
             """,
             (scan_id,),
         )
         return [dict(r) for r in rows]
+
+    def remove_images(self, image_ids: Sequence[int]) -> None:
+        """Forget images whose files were trashed (memberships go with them)."""
+        ids = [(int(i),) for i in image_ids]
+        if not ids:
+            return
+        with self._lock:
+            try:
+                self._conn.executemany("DELETE FROM group_members WHERE image_id = ?", ids)
+                self._conn.executemany("DELETE FROM images WHERE id = ?", ids)
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
+
+    def prune_scan(self, scan_id: int) -> None:
+        """Repair a scan's groups after images were removed.
+
+        Drops groups left with fewer than two members (nothing to compare),
+        re-points representative images that no longer exist, and refreshes the
+        scan's group and image counters.
+        """
+        with self._lock:
+            try:
+                dead = [
+                    int(r[0]) for r in self._conn.execute(
+                        "SELECT g.id FROM groups g WHERE g.scan_id = ? AND "
+                        "(SELECT COUNT(*) FROM group_members m WHERE m.group_id = g.id) < 2",
+                        (scan_id,))
+                ]
+                self._conn.executemany(
+                    "DELETE FROM group_members WHERE group_id = ?", [(g,) for g in dead])
+                self._conn.executemany(
+                    "DELETE FROM groups WHERE id = ?", [(g,) for g in dead])
+                self._conn.execute(
+                    """
+                    UPDATE groups SET rep_image_id = (
+                        SELECT m.image_id FROM group_members m
+                        JOIN images i ON i.id = m.image_id
+                        WHERE m.group_id = groups.id
+                        ORDER BY COALESCE(i.quality_score, -1) DESC, i.id LIMIT 1)
+                    WHERE scan_id = ? AND (rep_image_id IS NULL OR rep_image_id NOT IN
+                        (SELECT image_id FROM group_members WHERE group_id = groups.id))
+                    """,
+                    (scan_id,),
+                )
+                counts = {
+                    r[0]: r[1] for r in self._conn.execute(
+                        "SELECT kind, COUNT(*) FROM groups WHERE scan_id = ? GROUP BY kind",
+                        (scan_id,))
+                }
+                images = self._conn.execute(
+                    "SELECT COUNT(*) FROM images WHERE scan_id = ?", (scan_id,)
+                ).fetchone()[0]
+                self._conn.execute(
+                    "UPDATE scans SET exact_groups = ?, similar_groups = ?, "
+                    "deep_groups = ?, images_found = ?, "
+                    "images_hashed = MIN(images_hashed, ?) WHERE id = ?",
+                    (counts.get("exact", 0), counts.get("similar", 0),
+                     counts.get("deep", 0), images, images, scan_id),
+                )
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def decision_stats(self, scan_id: int) -> dict:
         rows = self._query(

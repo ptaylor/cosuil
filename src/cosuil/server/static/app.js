@@ -698,17 +698,44 @@ async function renderBrowse() {
 
 /* ================= apply modal ================= */
 
+function skipSummary(skipped) {
+  const byReason = {};
+  skipped.forEach((s) => { byReason[s.reason] = (byReason[s.reason] || 0) + 1; });
+  return Object.entries(byReason).map(([r, n]) => `  • ${n} × ${r}`).join("\n");
+}
+
+async function refreshResults() {
+  state.scan = await api(`/api/scans/${state.scanId}`);
+  renderApplyBar();
+  await loadGroups();
+}
+
 async function applyDecisions() {
-  if (!confirm("Move every file marked 'discard' to the OS trash? This is recoverable from the trash.")) return;
   $("#btn-apply").disabled = true;
   try {
+    // Ask the server what it would really do before confirming anything.
+    const plan = await api(`/api/scans/${state.scanId}/apply?dry_run=true`, { method: "POST" });
+    const skipped = plan.skipped.length
+      ? `\n\n${plan.skipped.length} marked files will be left alone for safety:\n${skipSummary(plan.skipped)}`
+      : "";
+    if (!plan.moved) {
+      alert(`Nothing can be moved to the trash.${skipped}`);
+      return;
+    }
+    if (!confirm(`Move ${plan.moved} files (${fmtBytes(plan.bytes)}) to the OS trash? They stay recoverable from the trash.${skipped}`)) return;
     const result = await api(`/api/scans/${state.scanId}/apply`, { method: "POST" });
+    const list = (rows, key) => rows.slice(0, 20).map(
+      (r) => `<li>${escapeHtml(r.path)} — ${escapeHtml(r[key])}</li>`).join("") +
+      (rows.length > 20 ? `<li>… and ${rows.length - 20} more (see the report)</li>` : "");
     $("#apply-result").innerHTML =
       `<div class="ok">✔ Moved ${result.moved} files (${fmtBytes(result.bytes)}) to the trash.</div>` +
       (result.errors.length
-        ? `<div class="err">${result.errors.length} files could not be moved.</div>` : "") +
-      `<div class="sub">Report: ${escapeHtml(result.report_file)}</div>`;
+        ? `<div class="err">${result.errors.length} files could not be moved:<ul>${list(result.errors, "error")}</ul></div>` : "") +
+      (result.skipped.length
+        ? `<div class="sub">${result.skipped.length} files left alone for safety:<ul>${list(result.skipped, "reason")}</ul></div>` : "") +
+      (result.report_file ? `<div class="sub">Report: ${escapeHtml(result.report_file)}</div>` : "");
     $("#modal-apply").classList.remove("hidden");
+    await refreshResults();
   } catch (err) {
     alert(`Apply failed: ${err.message}`);
   } finally {
@@ -733,7 +760,7 @@ async function refreshScansList() {
       <div class="scan-actions">
         <button class="btn" data-inspect="${s.id}" ${s.status === "done" ? "" : "disabled"}>Inspect</button>
         <button class="btn" data-rescan="${s.id}">Rescan</button>
-        <button class="btn ghost danger" data-delete="${s.id}" ${s.status === "done" ? "" : "disabled"}>Delete</button>
+        <button class="btn ghost danger" data-delete="${s.id}">Delete</button>
       </div>
     </div>`;
       })
@@ -809,7 +836,7 @@ $("#btn-results-home").addEventListener("click", () => {
 $("#btn-back").addEventListener("click", () => {
   stopBlink();
   showView("results");
-  loadGroups();
+  refreshResults();
 });
 $("#btn-prev-group").addEventListener("click", () => groupNav(-1));
 $("#btn-next-group").addEventListener("click", () => groupNav(1));

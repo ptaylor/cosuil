@@ -22,10 +22,16 @@ from ..thumbs import get_preview, get_thumbnail
 STATIC_DIR = Path(__file__).parent / "static"
 
 _RUNNING: dict[int, threading.Thread] = {}
+# Scan id whose files are being trashed right now (one apply at a time).
+_APPLY_LOCK = threading.Lock()
+_APPLYING: dict[str, Optional[int]] = {"scan_id": None}
 
 
 def _launch_scan(db: Database, cfg: ScanConfig) -> int:
     """Prepare a scan record (upsert per directory) and run it in a thread."""
+    existing = db.latest_scan(str(cfg.root))
+    if existing and existing["id"] == _APPLYING["scan_id"]:
+        raise HTTPException(409, "files are being moved to the trash for this directory")
     reused = {} if cfg.fresh else db.previous_hashes(str(cfg.root))
     try:
         scan_id = db.upsert_scan(str(cfg.root), cfg.to_json())
@@ -198,9 +204,14 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         scan = db.get_scan(scan_id)
         if scan is None:
             raise HTTPException(404, "scan not found")
-        if scan["status"] == "running" or scan_id in _RUNNING:
+        # Only a live scan thread blocks deletion: a 'running' row with no
+        # thread is left over from a crash and must stay removable.
+        if scan_id in _RUNNING:
             raise HTTPException(409, "scan is still running")
-        db.delete_scan(scan_id)
+        if _APPLYING["scan_id"] == scan_id:
+            raise HTTPException(409, "files are being moved to the trash")
+        if not db.delete_scan(scan_id):
+            raise HTTPException(404, "scan not found")
         return {"ok": True}
 
     # -- groups -------------------------------------------------------------------
@@ -261,11 +272,28 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         return {"ok": True}
 
     @app.post("/api/scans/{scan_id}/apply")
-    def apply(scan_id: int) -> dict:
+    def apply(scan_id: int, dry_run: bool = False) -> dict:
+        """Move discard-marked files to the OS trash.
+
+        With ``dry_run=true`` nothing is touched; the response says what would
+        be moved and what would be skipped (and why).
+        """
         db = get_db()
-        if db.get_scan(scan_id) is None:
+        scan = db.get_scan(scan_id)
+        if scan is None:
             raise HTTPException(404, "scan not found")
-        return apply_decisions(db, scan_id)
+        if scan_id in _RUNNING or scan["status"] != "done":
+            raise HTTPException(409, "scan is not finished")
+        if dry_run:
+            return apply_decisions(db, scan_id, dry_run=True)
+        if not _APPLY_LOCK.acquire(blocking=False):
+            raise HTTPException(409, "another apply is already in progress")
+        try:
+            _APPLYING["scan_id"] = scan_id
+            return apply_decisions(db, scan_id)
+        finally:
+            _APPLYING["scan_id"] = None
+            _APPLY_LOCK.release()
 
     # -- image serving -----------------------------------------------------------------
     @app.get("/api/images/{image_id}/thumb")

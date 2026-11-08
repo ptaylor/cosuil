@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import time
 from pathlib import Path
 
@@ -18,8 +19,13 @@ def client(tmp_dirs, fixtures_dir, monkeypatch):
     MOCK_TRASH.clear()
     import cosuil.actions as actions_mod
 
+    trash_dir = tmp_dirs[0] / "fake-trash"
+    trash_dir.mkdir(parents=True, exist_ok=True)
+
     def fake_trash(path: str):
+        # behave like the real thing: the file leaves its folder
         MOCK_TRASH.append(path)
+        shutil.move(path, str(trash_dir / f"{len(MOCK_TRASH)}-{Path(path).name}"))
 
     monkeypatch.setattr(actions_mod, "send2trash", fake_trash)
     app = create_app()
@@ -101,9 +107,12 @@ def test_full_review_flow(client, fixtures_dir):
     assert len(MOCK_TRASH) == len(members) - 1
     assert Path(result["report_file"]).exists()
 
-    # group status is now reviewed
-    detail = client.get(f"/api/groups/{group['id']}").json()
-    assert detail["status"] == "reviewed"
+    # trashed files are gone from disk, and the resolved group is retired
+    assert not any(Path(p).exists() for p in MOCK_TRASH)
+    assert client.get(f"/api/groups/{group['id']}").status_code == 404
+    assert Path(members[0]["path"]).exists()
+    after = client.get(f"/api/scans/{scan_id}").json()
+    assert "discard" not in after["decisions"]
 
 
 def test_decisions_cleared_returns_group_to_pending(client, fixtures_dir):

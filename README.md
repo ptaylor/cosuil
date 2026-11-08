@@ -63,6 +63,7 @@ cosuil scan ~/Pictures --quiet        # plain output (pipes/CI)
 cosuil report                         # latest scan: summary, settings, unreadable files
 cosuil scans                          # list saved scans
 cosuil delete-scan --scan 3           # delete a saved scan (files untouched)
+cosuil delete-scan --scan 3 --force   # ...even if marked running by a crashed process
 cosuil serve                          # start review UI → http://127.0.0.1:8787
 ```
 
@@ -88,7 +89,19 @@ cosuil serve                          # start review UI → http://127.0.0.1:878
      decisions and returns it to *pending*.
 5. Use the **Apply** bar to move everything marked *discard* to the OS trash.
    A JSON report with every moved path is written to the data directory, and
-   files remain recoverable from the trash.
+   files remain recoverable from the trash. Before moving anything, Apply shows
+   exactly how many files it will move and which marked files it will leave
+   alone, and why. It only trashes a file that is still exactly what you
+   reviewed, so it skips (and reports) files that:
+   - changed on disk since the scan (rescan first), are symbolic links, or sit
+     outside the scanned directory;
+   - are missing (their records are kept, in case a drive is just unmounted);
+   - are marked *discard* in one group but kept or undecided in another;
+   - would leave their group with no copy on disk — it never trashes the last
+     remaining copy.
+
+   Trashed files are removed from the review: groups left with a single image
+   are retired and the counts update, so applying twice is harmless.
 
 ### Quality score
 
